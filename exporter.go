@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/log"
 )
 
 const namespace = "marathon"
@@ -18,6 +19,7 @@ type Exporter struct {
 
 // Describe implements prometheus.Collector.
 func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
+	log.Debugln("Describing metrics")
 	metricCh := make(chan prometheus.Metric)
 	doneCh := make(chan struct{})
 
@@ -35,6 +37,7 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect implements prometheus.Collector.
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
+	log.Debugln("Collecting metrics")
 	e.scrape(ch)
 
 	ch <- e.duration

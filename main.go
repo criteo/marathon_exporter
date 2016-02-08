@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
-	"log"
 	"net/http"
 	"net/url"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/log"
 )
 
 var (
@@ -33,7 +33,6 @@ func main() {
 	exporter := NewExporter(uri)
 	prometheus.MustRegister(exporter)
 
-	log.Println("Starting Server:", *listenAddress)
 	http.Handle(*metricsPath, prometheus.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
@@ -45,5 +44,6 @@ func main() {
              </html>`))
 	})
 
+	log.Info("Starting Server: ", *listenAddress)
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }
