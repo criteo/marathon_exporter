@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/url"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
@@ -46,6 +47,17 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
+	e.totalScrapes.Inc()
+
+	var err error
+	defer func(begin time.Time) {
+		e.duration.Set(time.Since(begin).Seconds())
+		if err == nil {
+			e.scrapeError.Set(0)
+		} else {
+			e.scrapeError.Set(1)
+		}
+	}(time.Now())
 }
 
 func NewExporter(uri *url.URL) *Exporter {
