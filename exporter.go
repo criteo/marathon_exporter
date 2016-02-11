@@ -43,6 +43,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 	ch <- e.duration
 	ch <- e.totalScrapes
+	ch <- e.totalErrors
 	ch <- e.scrapeError
 }
 
@@ -55,6 +56,7 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 		if err == nil {
 			e.scrapeError.Set(0)
 		} else {
+			e.totalErrors.Inc()
 			e.scrapeError.Set(1)
 		}
 	}(time.Now())
