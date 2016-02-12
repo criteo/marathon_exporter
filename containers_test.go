@@ -53,3 +53,17 @@ func Test_get_or_create_counter(t *testing.T) {
 		t.Fatalf("expected same counter as before, go %d counter(s)", len(container.counters))
 	}
 }
+
+func Test_get_or_create_gauge(t *testing.T) {
+	container := NewGaugeContainer()
+	container.GetOrCreate("foo", prometheus.Labels{})
+
+	if len(container.gauges) != 1 {
+		t.Fatalf("expected a gauge, got %d gauge(s)", len(container.gauges))
+	}
+
+	container.GetOrCreate("foo", prometheus.Labels{})
+	if len(container.gauges) != 1 {
+		t.Fatalf("expected same gauge as before, go %d gauge(s)", len(container.gauges))
+	}
+}

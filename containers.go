@@ -41,6 +41,34 @@ func (c *CounterContainer) GetOrCreate(metricName string, labels prometheus.Labe
 	return counter
 }
 
+type GaugeContainer struct {
+	gauges map[string]prometheus.Gauge
+}
+
+func NewGaugeContainer() *GaugeContainer {
+	return &GaugeContainer{
+		gauges: make(map[string]prometheus.Gauge),
+	}
+}
+
+func (c *GaugeContainer) GetOrCreate(metricName string, labels prometheus.Labels) prometheus.Gauge {
+	key := containerKey(metricName, labels)
+	gauge, ok := c.gauges[key]
+
+	if !ok {
+		gauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace:   namespace,
+			Name:        metricName,
+			Help:        defaultHelp,
+			ConstLabels: labels,
+		})
+
+		c.gauges[key] = gauge
+	}
+
+	return gauge
+}
+
 func containerKey(metric string, labels prometheus.Labels) string {
 	labelNames := make([]string, 0, len(labels))
 	for name := range labels {

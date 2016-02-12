@@ -26,6 +26,7 @@ type Exporter struct {
 	totalErrors    prometheus.Counter
 	totalScrapes   prometheus.Counter
 	Counters       *CounterContainer
+	Gauges         *GaugeContainer
 }
 
 // Describe implements prometheus.Collector.
@@ -116,7 +117,7 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 		case "counters":
 			e.scrapeCounters(element, ch)
 		case "gauges":
-			log.Debugln("Found gauges")
+			e.scrapeGauges(element, ch)
 		case "histograms":
 			log.Debugln("Found historgrams")
 		case "meters":
@@ -125,7 +126,6 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 			log.Debugln("Found timers")
 		}
 	}
-
 }
 
 func (e *Exporter) scrapeCounters(json *gabs.Container, ch chan<- prometheus.Metric) {
@@ -133,12 +133,38 @@ func (e *Exporter) scrapeCounters(json *gabs.Container, ch chan<- prometheus.Met
 	for key, element := range elements {
 		log.Debugf("Found counter metric %s\n", key)
 		name := metricName(key)
-		value := element.Path("count").Data().(float64)
 
-		log.Debugf("Adding value %v to counter %s\n", value, name)
+		data := element.Path("count").Data()
+		count, ok := data.(float64)
+		if !ok {
+			log.Debugf("Bad conversion! Skipping counter %s with count %v\n", name, data)
+			continue
+		}
+
+		log.Debugf("Adding counter %s with count %v\n", name, count)
 		counter := e.Counters.GetOrCreate(name, prometheus.Labels{})
-		counter.Add(value)
+		counter.Set(count)
 		ch <- counter
+	}
+}
+
+func (e *Exporter) scrapeGauges(json *gabs.Container, ch chan<- prometheus.Metric) {
+	elements, _ := json.ChildrenMap()
+	for key, element := range elements {
+		log.Debugf("Found gauge metric %s\n", key)
+		name := metricName(key)
+
+		data := element.Path("value").Data()
+		value, ok := data.(float64)
+		if !ok {
+			log.Debugf("Bad conversion! Skipping gauge %s with value %v\n", name, data)
+			continue
+		}
+
+		log.Debugf("Adding gauge %s with value %v\n", name, value)
+		gauge := e.Gauges.GetOrCreate(name, prometheus.Labels{})
+		gauge.Set(value)
+		ch <- gauge
 	}
 }
 
@@ -154,6 +180,7 @@ func NewExporter(uri *url.URL) *Exporter {
 	return &Exporter{
 		uri:      uri,
 		Counters: NewCounterContainer(),
+		Gauges:   NewGaugeContainer(),
 		duration: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: "exporter",
