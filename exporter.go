@@ -121,7 +121,7 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 		case "histograms":
 			log.Debugln("Found historgrams")
 		case "meters":
-			log.Debugln("Found meters")
+			e.scrapeMeters(element, ch)
 		case "timers":
 			log.Debugln("Found timers")
 		}
@@ -142,9 +142,9 @@ func (e *Exporter) scrapeCounters(json *gabs.Container, ch chan<- prometheus.Met
 		}
 
 		log.Debugf("Adding counter %s with count %v\n", name, count)
-		counter := e.Counters.GetOrCreate(name, prometheus.Labels{})
-		counter.Set(count)
-		ch <- counter
+		counter := e.Counters.GetOrCreate(name)
+		counter.WithLabelValues().Set(count)
+		counter.Collect(ch)
 	}
 }
 
@@ -162,10 +162,62 @@ func (e *Exporter) scrapeGauges(json *gabs.Container, ch chan<- prometheus.Metri
 		}
 
 		log.Debugf("Adding gauge %s with value %v\n", name, value)
-		gauge := e.Gauges.GetOrCreate(name, prometheus.Labels{})
-		gauge.Set(value)
-		ch <- gauge
+		gauge := e.Gauges.GetOrCreate(name)
+		gauge.WithLabelValues().Set(value)
+		gauge.Collect(ch)
 	}
+}
+
+func (e *Exporter) scrapeMeters(json *gabs.Container, ch chan<- prometheus.Metric) {
+	elements, _ := json.ChildrenMap()
+	for key, element := range elements {
+		log.Debugf("Found meter metric %s\n", key)
+		name := metricName(key)
+		e.scrapeMeter(name, element, ch)
+	}
+}
+
+func (e *Exporter) scrapeMeter(name string, json *gabs.Container, ch chan<- prometheus.Metric) {
+	count, ok := json.Path("count").Data().(float64)
+	if !ok {
+		log.Debugf("Bad meter! %s has no count\n", name)
+		return
+	}
+
+	log.Debugf("Adding meter %s with count %v\n", name, count)
+	counter := e.Counters.GetOrCreate(name + "_count")
+	counter.WithLabelValues().Set(count)
+	counter.Collect(ch)
+
+	gauge := e.Gauges.GetOrCreate(name, "rate")
+	properties, _ := json.ChildrenMap()
+	for propName, property := range properties {
+		if !strings.Contains(propName, "rate") {
+			continue
+		}
+
+		if value, ok := property.Data().(float64); ok {
+			gauge.WithLabelValues(
+				rateName(propName),
+			).Set(value)
+		}
+	}
+
+	gauge.Collect(ch)
+}
+
+func rateName(originalRate string) (name string) {
+	switch originalRate {
+	case "m1_rate":
+		name = "1m"
+	case "m5_rate":
+		name = "5m"
+	case "m15_rate":
+		name = "15m"
+	default:
+		name = strings.TrimSuffix(originalRate, "_rate")
+	}
+	return
 }
 
 func metricName(originalName string) (name string) {

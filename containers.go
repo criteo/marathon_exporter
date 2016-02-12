@@ -14,26 +14,25 @@ const (
 )
 
 type CounterContainer struct {
-	counters map[string]prometheus.Counter
+	counters map[string]*prometheus.CounterVec
 }
 
 func NewCounterContainer() *CounterContainer {
 	return &CounterContainer{
-		counters: make(map[string]prometheus.Counter),
+		counters: make(map[string]*prometheus.CounterVec),
 	}
 }
 
-func (c *CounterContainer) GetOrCreate(metricName string, labels prometheus.Labels) prometheus.Counter {
+func (c *CounterContainer) GetOrCreate(metricName string, labels ...string) *prometheus.CounterVec {
 	key := containerKey(metricName, labels)
 	counter, ok := c.counters[key]
 
 	if !ok {
-		counter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace:   namespace,
-			Name:        metricName,
-			Help:        defaultHelp,
-			ConstLabels: labels,
-		})
+		counter = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      metricName,
+			Help:      defaultHelp,
+		}, labels)
 
 		c.counters[key] = counter
 	}
@@ -42,26 +41,25 @@ func (c *CounterContainer) GetOrCreate(metricName string, labels prometheus.Labe
 }
 
 type GaugeContainer struct {
-	gauges map[string]prometheus.Gauge
+	gauges map[string]*prometheus.GaugeVec
 }
 
 func NewGaugeContainer() *GaugeContainer {
 	return &GaugeContainer{
-		gauges: make(map[string]prometheus.Gauge),
+		gauges: make(map[string]*prometheus.GaugeVec),
 	}
 }
 
-func (c *GaugeContainer) GetOrCreate(metricName string, labels prometheus.Labels) prometheus.Gauge {
+func (c *GaugeContainer) GetOrCreate(metricName string, labels ...string) *prometheus.GaugeVec {
 	key := containerKey(metricName, labels)
 	gauge, ok := c.gauges[key]
 
 	if !ok {
-		gauge = prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace:   namespace,
-			Name:        metricName,
-			Help:        defaultHelp,
-			ConstLabels: labels,
-		})
+		gauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      metricName,
+			Help:      defaultHelp,
+		}, labels)
 
 		c.gauges[key] = gauge
 	}
@@ -69,12 +67,9 @@ func (c *GaugeContainer) GetOrCreate(metricName string, labels prometheus.Labels
 	return gauge
 }
 
-func containerKey(metric string, labels prometheus.Labels) string {
-	labelNames := make([]string, 0, len(labels))
-	for name := range labels {
-		labelNames = append(labelNames, name)
-	}
-
-	sort.Strings(labelNames)
-	return fmt.Sprintf("%s{%v}", metric, strings.Join(labelNames, ","))
+func containerKey(metric string, labels []string) string {
+	s := make([]string, len(labels))
+	copy(s, labels)
+	sort.Strings(s)
+	return fmt.Sprintf("%s{%v}", metric, strings.Join(s, ","))
 }

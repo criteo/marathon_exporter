@@ -1,33 +1,24 @@
 package main
 
-import (
-	"testing"
-
-	"github.com/prometheus/client_golang/prometheus"
-)
+import "testing"
 
 func Test_container_key(t *testing.T) {
 	cases := []struct {
 		name   string
-		labels prometheus.Labels
+		labels []string
 		expect string
 	}{
 		{
 			name:   "foo",
-			labels: prometheus.Labels{},
+			labels: []string{},
 			expect: "foo{}",
 		}, {
-			name: "foo",
-			labels: prometheus.Labels{
-				"value": "bar",
-			},
+			name:   "foo",
+			labels: []string{"value"},
 			expect: "foo{value}",
 		}, {
-			name: "foo",
-			labels: prometheus.Labels{
-				"value": "bar",
-				"color": "red",
-			},
+			name:   "foo",
+			labels: []string{"value", "color"},
 			expect: "foo{color,value}",
 		},
 	}
@@ -42,13 +33,13 @@ func Test_container_key(t *testing.T) {
 
 func Test_get_or_create_counter(t *testing.T) {
 	container := NewCounterContainer()
-	container.GetOrCreate("foo", prometheus.Labels{})
+	container.GetOrCreate("foo")
 
 	if len(container.counters) != 1 {
 		t.Fatalf("expected a counter, got %d counter(s)", len(container.counters))
 	}
 
-	container.GetOrCreate("foo", prometheus.Labels{})
+	container.GetOrCreate("foo")
 	if len(container.counters) != 1 {
 		t.Fatalf("expected same counter as before, go %d counter(s)", len(container.counters))
 	}
@@ -56,13 +47,13 @@ func Test_get_or_create_counter(t *testing.T) {
 
 func Test_get_or_create_gauge(t *testing.T) {
 	container := NewGaugeContainer()
-	container.GetOrCreate("foo", prometheus.Labels{})
+	container.GetOrCreate("foo")
 
 	if len(container.gauges) != 1 {
 		t.Fatalf("expected a gauge, got %d gauge(s)", len(container.gauges))
 	}
 
-	container.GetOrCreate("foo", prometheus.Labels{})
+	container.GetOrCreate("foo")
 	if len(container.gauges) != 1 {
 		t.Fatalf("expected same gauge as before, go %d gauge(s)", len(container.gauges))
 	}
