@@ -1,8 +1,16 @@
 package main
 
 import (
+	"crypto/tls"
+	"fmt"
+	"io/ioutil"
+	"net"
+	"net/http"
 	"net/url"
+	"strings"
 	"time"
+
+	"github.com/jeffail/gabs"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
@@ -11,11 +19,13 @@ import (
 const namespace = "marathon"
 
 type Exporter struct {
-	uri          *url.URL
-	duration     prometheus.Gauge
-	scrapeError  prometheus.Gauge
-	totalErrors  prometheus.Counter
-	totalScrapes prometheus.Counter
+	uri            *url.URL
+	metricsVersion string
+	duration       prometheus.Gauge
+	scrapeError    prometheus.Gauge
+	totalErrors    prometheus.Counter
+	totalScrapes   prometheus.Counter
+	Counters       *CounterContainer
 }
 
 // Describe implements prometheus.Collector.
@@ -60,11 +70,90 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 			e.scrapeError.Set(1)
 		}
 	}(time.Now())
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			Dial: (&net.Dialer{
+				Timeout: 10 * time.Second,
+			}).Dial,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
+
+	response, err := client.Get(fmt.Sprintf("%v/metrics", e.uri))
+	if err != nil {
+		log.Debugf("Problem connecting to metrics endpoint: %v\n", err)
+		return
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil {
+		log.Debugf("Problem reading metrics response body: %v\n", err)
+		return
+	}
+
+	json, err := gabs.ParseJSON(body)
+	if err != nil {
+		log.Debugf("Problem parsing metrics response body: %v\n", err)
+		return
+	}
+
+	elements, err := json.ChildrenMap()
+	for key, element := range elements {
+		switch key {
+		case "message":
+			log.Debugf("Problem collecting metrics: %s\n", element.Data().(string))
+			return
+		case "version":
+			if e.metricsVersion == "" {
+				e.metricsVersion = element.Data().(string)
+				log.Infof("Collecting Marathon metrics version: %s\n", e.metricsVersion)
+			}
+		case "counters":
+			e.scrapeCounters(element, ch)
+		case "gauges":
+			log.Debugln("Found gauges")
+		case "histograms":
+			log.Debugln("Found historgrams")
+		case "meters":
+			log.Debugln("Found meters")
+		case "timers":
+			log.Debugln("Found timers")
+		}
+	}
+
+}
+
+func (e *Exporter) scrapeCounters(json *gabs.Container, ch chan<- prometheus.Metric) {
+	elements, _ := json.ChildrenMap()
+	for key, element := range elements {
+		log.Debugf("Found counter metric %s\n", key)
+		name := metricName(key)
+		value := element.Path("count").Data().(float64)
+
+		log.Debugf("Adding value %v to counter %s\n", value, name)
+		counter := e.Counters.GetOrCreate(name, prometheus.Labels{})
+		counter.Add(value)
+		ch <- counter
+	}
+}
+
+func metricName(originalName string) (name string) {
+	name = strings.ToLower(originalName)
+	name = strings.Replace(name, ".", "_", -1)
+	name = strings.Replace(name, "-", "_", -1)
+	name = strings.Replace(name, "$", "_", -1)
+	return
 }
 
 func NewExporter(uri *url.URL) *Exporter {
 	return &Exporter{
-		uri: uri,
+		uri:      uri,
+		Counters: NewCounterContainer(),
 		duration: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: "exporter",
