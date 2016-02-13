@@ -119,7 +119,7 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 		case "gauges":
 			e.scrapeGauges(element, ch)
 		case "histograms":
-			log.Debugln("Found historgrams")
+			e.scrapeHistograms(element, ch)
 		case "meters":
 			e.scrapeMeters(element, ch)
 		case "timers":
@@ -204,6 +204,50 @@ func (e *Exporter) scrapeMeter(name string, json *gabs.Container, ch chan<- prom
 	}
 
 	gauge.Collect(ch)
+}
+
+func (e *Exporter) scrapeHistograms(json *gabs.Container, ch chan<- prometheus.Metric) {
+	elements, _ := json.ChildrenMap()
+	for key, element := range elements {
+		log.Debugf("Found histogram metric %s\n", key)
+		name := metricName(key)
+		e.scrapeHistogram(name, element, ch)
+	}
+}
+
+func (e *Exporter) scrapeHistogram(name string, json *gabs.Container, ch chan<- prometheus.Metric) {
+	count, ok := json.Path("count").Data().(float64)
+	if !ok {
+		log.Debugf("Bad histogram! %s has no count\n", name)
+		return
+	}
+
+	log.Debugf("Adding histogram %s with count %v\n", name, count)
+	counter := e.Counters.GetOrCreate(name + "_count")
+	counter.WithLabelValues().Set(count)
+	counter.Collect(ch)
+
+	percentiles := e.Gauges.GetOrCreate(name, "percentile")
+	properties, _ := json.ChildrenMap()
+	for propName, property := range properties {
+		switch propName {
+		case "p50", "p75", "p95", "p98", "p99", "p999":
+			if value, ok := property.Data().(float64); ok {
+				percentiles.WithLabelValues(
+					"0." + propName[1:],
+				).Set(value)
+			}
+		case "max", "min", "mean", "stdev":
+			if value, ok := property.Data().(float64); ok {
+				gauge := e.Gauges.GetOrCreate(name + "_" + propName)
+				gauge.WithLabelValues().Set(value)
+				gauge.Collect(ch)
+			}
+		}
+
+	}
+
+	percentiles.Collect(ch)
 }
 
 func rateName(originalRate string) (name string) {
