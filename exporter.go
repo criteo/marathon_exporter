@@ -124,7 +124,7 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 		case "meters":
 			e.scrapeMeters(element, ch)
 		case "timers":
-			log.Debugln("Found timers")
+			e.scrapeTimers(element, ch)
 		}
 	}
 }
@@ -209,15 +209,13 @@ func (e *Exporter) scrapeMeter(key string, json *gabs.Container) ([]prometheus.C
 	counter, new := e.Counters.Fetch(name + "_count")
 	counter.WithLabelValues().Set(count)
 
-	gauge, _ := e.Gauges.Fetch(name, "rate")
+	gauge, _ := e.Gauges.Fetch(name+"_rate", "window")
 	properties, _ := json.ChildrenMap()
 	for key, property := range properties {
-		if !strings.Contains(key, "rate") {
-			continue
-		}
-
-		if value, ok := property.Data().(float64); ok {
-			gauge.WithLabelValues(rateName(key)).Set(value)
+		if strings.Contains(key, "rate") {
+			if value, ok := property.Data().(float64); ok {
+				gauge.WithLabelValues(rateName(key)).Set(value)
+			}
 		}
 	}
 
@@ -290,6 +288,75 @@ func (e *Exporter) scrapeHistogram(key string, json *gabs.Container) ([]promethe
 	return []prometheus.Collector{counter, percentiles, min, max, mean, stdev}, nil
 }
 
+func (e *Exporter) scrapeTimers(json *gabs.Container, ch chan<- prometheus.Metric) {
+	elements, _ := json.ChildrenMap()
+	for key, element := range elements {
+		metrics, err := e.scrapeTimer(key, element)
+		if err != nil {
+			log.Debug(err)
+		} else {
+			for _, metric := range metrics {
+				metric.Collect(ch)
+			}
+		}
+	}
+}
+
+func (e *Exporter) scrapeTimer(key string, json *gabs.Container) ([]prometheus.Collector, error) {
+	count, ok := json.Path("count").Data().(float64)
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("Bad timer! %s has no count\n", key))
+	}
+
+	name := metricName(key)
+	counter, new := e.Counters.Fetch(name + "_count")
+	counter.WithLabelValues().Set(count)
+
+	rates, _ := e.Gauges.Fetch(name+"_rate", "window")
+	percentiles, _ := e.Gauges.Fetch(name, "percentile")
+	min, _ := e.Gauges.Fetch(name + "_min")
+	max, _ := e.Gauges.Fetch(name + "_max")
+	mean, _ := e.Gauges.Fetch(name + "_mean")
+	stdev, _ := e.Gauges.Fetch(name + "_stdev")
+
+	properties, _ := json.ChildrenMap()
+	for key, property := range properties {
+		switch key {
+		case "mean_rate", "m1_rate", "m5_rate", "m15_rate":
+			if value, ok := property.Data().(float64); ok {
+				rates.WithLabelValues(rateName(key)).Set(value)
+			}
+
+		case "p50", "p75", "p95", "p98", "p99", "p999":
+			if value, ok := property.Data().(float64); ok {
+				percentiles.WithLabelValues("0." + key[1:]).Set(value)
+			}
+		case "min":
+			if value, ok := property.Data().(float64); ok {
+				min.WithLabelValues().Set(value)
+			}
+		case "max":
+			if value, ok := property.Data().(float64); ok {
+				max.WithLabelValues().Set(value)
+			}
+		case "mean":
+			if value, ok := property.Data().(float64); ok {
+				mean.WithLabelValues().Set(value)
+			}
+		case "stdev":
+			if value, ok := property.Data().(float64); ok {
+				stdev.WithLabelValues().Set(value)
+			}
+		}
+	}
+
+	if new {
+		log.Infof("Adding timer %s with initial count %v\n", name, count)
+	}
+
+	return []prometheus.Collector{counter, rates, percentiles, min, max, mean, stdev}, nil
+}
+
 func rateName(originalRate string) (name string) {
 	switch originalRate {
 	case "m1_rate":
@@ -309,6 +376,9 @@ func metricName(originalName string) (name string) {
 	name = strings.Replace(name, ".", "_", -1)
 	name = strings.Replace(name, "-", "_", -1)
 	name = strings.Replace(name, "$", "_", -1)
+	name = strings.Replace(name, "(", "_", -1)
+	name = strings.Replace(name, ")", "_", -1)
+	name = strings.TrimRight(name, "_")
 	return
 }
 

@@ -22,6 +22,9 @@ func Test_metric_rename(t *testing.T) {
 		}, {
 			name:   "foo$bar",
 			expect: "foo_bar",
+		}, {
+			name:   "foo(bar)",
+			expect: "foo_bar",
 		},
 	}
 
