@@ -33,28 +33,40 @@ func Test_container_key(t *testing.T) {
 
 func Test_get_or_create_counter(t *testing.T) {
 	container := NewCounterContainer()
-	container.GetOrCreate("foo")
+	_, new := container.Fetch("foo")
 
+	if !new {
+		t.Fatal("expected a new counter")
+	}
 	if len(container.counters) != 1 {
-		t.Fatalf("expected a counter, got %d counter(s)", len(container.counters))
+		t.Fatalf("expected a counter, got %d counters", len(container.counters))
 	}
 
-	container.GetOrCreate("foo")
+	_, new = container.Fetch("foo")
+	if new {
+		t.Fatal("expected an existing counter")
+	}
 	if len(container.counters) != 1 {
-		t.Fatalf("expected same counter as before, go %d counter(s)", len(container.counters))
+		t.Fatalf("expected same counter as before, go %d counters", len(container.counters))
 	}
 }
 
 func Test_get_or_create_gauge(t *testing.T) {
 	container := NewGaugeContainer()
-	container.GetOrCreate("foo")
+	_, new := container.Fetch("foo")
 
+	if !new {
+		t.Fatal("expected a new gauge")
+	}
 	if len(container.gauges) != 1 {
-		t.Fatalf("expected a gauge, got %d gauge(s)", len(container.gauges))
+		t.Fatalf("expected a gauge, got %d gauges", len(container.gauges))
 	}
 
-	container.GetOrCreate("foo")
+	_, new = container.Fetch("foo")
+	if new {
+		t.Fatal("expected an existing gauge")
+	}
 	if len(container.gauges) != 1 {
-		t.Fatalf("expected same gauge as before, go %d gauge(s)", len(container.gauges))
+		t.Fatalf("expected same gauge as before, go %d gauges", len(container.gauges))
 	}
 }

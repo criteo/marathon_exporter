@@ -23,11 +23,11 @@ func NewCounterContainer() *CounterContainer {
 	}
 }
 
-func (c *CounterContainer) GetOrCreate(metricName string, labels ...string) *prometheus.CounterVec {
+func (c *CounterContainer) Fetch(metricName string, labels ...string) (*prometheus.CounterVec, bool) {
 	key := containerKey(metricName, labels)
-	counter, ok := c.counters[key]
+	counter, exists := c.counters[key]
 
-	if !ok {
+	if !exists {
 		counter = prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      metricName,
@@ -36,8 +36,7 @@ func (c *CounterContainer) GetOrCreate(metricName string, labels ...string) *pro
 
 		c.counters[key] = counter
 	}
-
-	return counter
+	return counter, !exists
 }
 
 type GaugeContainer struct {
@@ -50,11 +49,11 @@ func NewGaugeContainer() *GaugeContainer {
 	}
 }
 
-func (c *GaugeContainer) GetOrCreate(metricName string, labels ...string) *prometheus.GaugeVec {
+func (c *GaugeContainer) Fetch(metricName string, labels ...string) (*prometheus.GaugeVec, bool) {
 	key := containerKey(metricName, labels)
-	gauge, ok := c.gauges[key]
+	gauge, exists := c.gauges[key]
 
-	if !ok {
+	if !exists {
 		gauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      metricName,
@@ -63,8 +62,7 @@ func (c *GaugeContainer) GetOrCreate(metricName string, labels ...string) *prome
 
 		c.gauges[key] = gauge
 	}
-
-	return gauge
+	return gauge, !exists
 }
 
 func containerKey(metric string, labels []string) string {

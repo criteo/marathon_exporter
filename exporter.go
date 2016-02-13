@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -131,123 +132,162 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 func (e *Exporter) scrapeCounters(json *gabs.Container, ch chan<- prometheus.Metric) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
-		log.Debugf("Found counter metric %s\n", key)
-		name := metricName(key)
-
-		data := element.Path("count").Data()
-		count, ok := data.(float64)
-		if !ok {
-			log.Debugf("Bad conversion! Skipping counter %s with count %v\n", name, data)
-			continue
+		counter, err := e.scrapeCounter(key, element)
+		if err == nil {
+			counter.Collect(ch)
+		} else {
+			log.Debug(err)
 		}
-
-		log.Debugf("Adding counter %s with count %v\n", name, count)
-		counter := e.Counters.GetOrCreate(name)
-		counter.WithLabelValues().Set(count)
-		counter.Collect(ch)
 	}
+}
+
+func (e *Exporter) scrapeCounter(key string, json *gabs.Container) (prometheus.Collector, error) {
+	data := json.Path("count").Data()
+	count, ok := data.(float64)
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("Bad conversion! Unexpected value \"%v\" for counter %s\n", data, key))
+	}
+
+	name := metricName(key)
+	counter, new := e.Counters.Fetch(name)
+	counter.WithLabelValues().Set(count)
+	if new {
+		log.Infof("Added counter %s with initial count %v\n", name, count)
+	}
+	return counter, nil
 }
 
 func (e *Exporter) scrapeGauges(json *gabs.Container, ch chan<- prometheus.Metric) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
-		log.Debugf("Found gauge metric %s\n", key)
-		name := metricName(key)
-
-		data := element.Path("value").Data()
-		value, ok := data.(float64)
-		if !ok {
-			log.Debugf("Bad conversion! Skipping gauge %s with value %v\n", name, data)
-			continue
+		gauge, err := e.scrapeGauge(key, element)
+		if err == nil {
+			gauge.Collect(ch)
+		} else {
+			log.Debug(err)
 		}
-
-		log.Debugf("Adding gauge %s with value %v\n", name, value)
-		gauge := e.Gauges.GetOrCreate(name)
-		gauge.WithLabelValues().Set(value)
-		gauge.Collect(ch)
 	}
+}
+
+func (e *Exporter) scrapeGauge(key string, json *gabs.Container) (prometheus.Collector, error) {
+	data := json.Path("value").Data()
+	value, ok := data.(float64)
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("Bad conversion! Unexpected value \"%v\" for gauge %s\n", data, key))
+	}
+
+	name := metricName(key)
+	gauge, new := e.Gauges.Fetch(name)
+	gauge.WithLabelValues().Set(value)
+	if new {
+		log.Infof("Added gauge %s with initial value %v\n", name, value)
+	}
+	return gauge, nil
 }
 
 func (e *Exporter) scrapeMeters(json *gabs.Container, ch chan<- prometheus.Metric) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
-		log.Debugf("Found meter metric %s\n", key)
-		name := metricName(key)
-		e.scrapeMeter(name, element, ch)
+		metrics, err := e.scrapeMeter(key, element)
+		if err != nil {
+			log.Debug(err)
+		} else {
+			for _, metric := range metrics {
+				metric.Collect(ch)
+			}
+		}
 	}
 }
 
-func (e *Exporter) scrapeMeter(name string, json *gabs.Container, ch chan<- prometheus.Metric) {
+func (e *Exporter) scrapeMeter(key string, json *gabs.Container) ([]prometheus.Collector, error) {
 	count, ok := json.Path("count").Data().(float64)
 	if !ok {
-		log.Debugf("Bad meter! %s has no count\n", name)
-		return
+		return nil, errors.New(fmt.Sprintf("Bad meter! %s has no count\n", key))
 	}
 
-	log.Debugf("Adding meter %s with count %v\n", name, count)
-	counter := e.Counters.GetOrCreate(name + "_count")
+	name := metricName(key)
+	counter, new := e.Counters.Fetch(name + "_count")
 	counter.WithLabelValues().Set(count)
-	counter.Collect(ch)
 
-	gauge := e.Gauges.GetOrCreate(name, "rate")
+	gauge, _ := e.Gauges.Fetch(name, "rate")
 	properties, _ := json.ChildrenMap()
-	for propName, property := range properties {
-		if !strings.Contains(propName, "rate") {
+	for key, property := range properties {
+		if !strings.Contains(key, "rate") {
 			continue
 		}
 
 		if value, ok := property.Data().(float64); ok {
-			gauge.WithLabelValues(
-				rateName(propName),
-			).Set(value)
+			gauge.WithLabelValues(rateName(key)).Set(value)
 		}
 	}
 
-	gauge.Collect(ch)
+	if new {
+		log.Infof("Adding meter %s with initial count %v\n", name, count)
+	}
+	return []prometheus.Collector{counter, gauge}, nil
 }
 
 func (e *Exporter) scrapeHistograms(json *gabs.Container, ch chan<- prometheus.Metric) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
-		log.Debugf("Found histogram metric %s\n", key)
-		name := metricName(key)
-		e.scrapeHistogram(name, element, ch)
+		metrics, err := e.scrapeHistogram(key, element)
+		if err != nil {
+			log.Debug(err)
+		} else {
+			for _, metric := range metrics {
+				metric.Collect(ch)
+			}
+		}
 	}
 }
 
-func (e *Exporter) scrapeHistogram(name string, json *gabs.Container, ch chan<- prometheus.Metric) {
+func (e *Exporter) scrapeHistogram(key string, json *gabs.Container) ([]prometheus.Collector, error) {
 	count, ok := json.Path("count").Data().(float64)
 	if !ok {
-		log.Debugf("Bad histogram! %s has no count\n", name)
-		return
+		return nil, errors.New(fmt.Sprintf("Bad historgram! %s has no count\n", key))
 	}
 
-	log.Debugf("Adding histogram %s with count %v\n", name, count)
-	counter := e.Counters.GetOrCreate(name + "_count")
+	name := metricName(key)
+	counter, new := e.Counters.Fetch(name + "_count")
 	counter.WithLabelValues().Set(count)
-	counter.Collect(ch)
 
-	percentiles := e.Gauges.GetOrCreate(name, "percentile")
+	percentiles, _ := e.Gauges.Fetch(name, "percentile")
+	min, _ := e.Gauges.Fetch(name + "_min")
+	max, _ := e.Gauges.Fetch(name + "_max")
+	mean, _ := e.Gauges.Fetch(name + "_mean")
+	stdev, _ := e.Gauges.Fetch(name + "_stdev")
+
 	properties, _ := json.ChildrenMap()
-	for propName, property := range properties {
-		switch propName {
+	for key, property := range properties {
+		switch key {
 		case "p50", "p75", "p95", "p98", "p99", "p999":
 			if value, ok := property.Data().(float64); ok {
-				percentiles.WithLabelValues(
-					"0." + propName[1:],
-				).Set(value)
+				percentiles.WithLabelValues("0." + key[1:]).Set(value)
 			}
-		case "max", "min", "mean", "stdev":
+		case "min":
 			if value, ok := property.Data().(float64); ok {
-				gauge := e.Gauges.GetOrCreate(name + "_" + propName)
-				gauge.WithLabelValues().Set(value)
-				gauge.Collect(ch)
+				min.WithLabelValues().Set(value)
+			}
+		case "max":
+			if value, ok := property.Data().(float64); ok {
+				max.WithLabelValues().Set(value)
+			}
+		case "mean":
+			if value, ok := property.Data().(float64); ok {
+				mean.WithLabelValues().Set(value)
+			}
+		case "stdev":
+			if value, ok := property.Data().(float64); ok {
+				stdev.WithLabelValues().Set(value)
 			}
 		}
-
 	}
 
-	percentiles.Collect(ch)
+	if new {
+		log.Infof("Adding histogram %s with initial count %v\n", name, count)
+	}
+
+	return []prometheus.Collector{counter, percentiles, min, max, mean, stdev}, nil
 }
 
 func rateName(originalRate string) (name string) {
