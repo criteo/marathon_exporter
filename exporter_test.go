@@ -119,16 +119,16 @@ func Test_scrape_meters(t *testing.T) {
 			desc: desc("foo_count", "Marathon meter foo (foos/bar)"),
 			data: `counter:<value:123 > `,
 		}, {
-			desc: desc("foo_rate", "Marathon meter foo (foos/bar)", "window"),
+			desc: desc("foo", "Marathon meter foo (foos/bar)", "rate"),
 			data: `gauge:<value:1 > `,
 		}, {
-			desc: desc("foo_rate", "Marathon meter foo (foos/bar)", "window"),
+			desc: desc("foo", "Marathon meter foo (foos/bar)", "rate"),
 			data: `gauge:<value:2 > `,
 		}, {
-			desc: desc("foo_rate", "Marathon meter foo (foos/bar)", "window"),
+			desc: desc("foo", "Marathon meter foo (foos/bar)", "rate"),
 			data: `gauge:<value:3 > `,
 		}, {
-			desc: desc("foo_rate", "Marathon meter foo (foos/bar)", "window"),
+			desc: desc("foo", "Marathon meter foo (foos/bar)", "rate"),
 			data: `gauge:<value:4 > `,
 		},
 	}
@@ -225,16 +225,16 @@ func Test_scrape_timers(t *testing.T) {
 			desc: desc("foo_count", "Marathon timer foo (foos/bar)"),
 			data: `counter:<value:987 > `,
 		}, {
-			desc: desc("foo_rate", "Marathon timer foo (foos/bar)", "window"),
+			desc: desc("foo_rate", "Marathon timer foo (foos/bar)", "rate"),
 			data: `gauge:<value:1 > `,
 		}, {
-			desc: desc("foo_rate", "Marathon timer foo (foos/bar)", "window"),
+			desc: desc("foo_rate", "Marathon timer foo (foos/bar)", "rate"),
 			data: `gauge:<value:2 > `,
 		}, {
-			desc: desc("foo_rate", "Marathon timer foo (foos/bar)", "window"),
+			desc: desc("foo_rate", "Marathon timer foo (foos/bar)", "rate"),
 			data: `gauge:<value:3 > `,
 		}, {
-			desc: desc("foo_rate", "Marathon timer foo (foos/bar)", "window"),
+			desc: desc("foo_rate", "Marathon timer foo (foos/bar)", "rate"),
 			data: `gauge:<value:4 > `,
 		}, {
 			desc: desc("foo", "Marathon timer foo (foos/bar)", "percentile"),

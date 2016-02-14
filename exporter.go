@@ -220,7 +220,7 @@ func (e *Exporter) scrapeMeter(key string, json *gabs.Container) ([]prometheus.C
 	counter, new := e.Counters.Fetch(name+"_count", help)
 	counter.WithLabelValues().Set(count)
 
-	gauge, _ := e.Gauges.Fetch(name+"_rate", help, "window")
+	gauge, _ := e.Gauges.Fetch(name, help, "rate")
 	properties, _ := json.ChildrenMap()
 	for key, property := range properties {
 		if strings.Contains(key, "rate") {
@@ -329,7 +329,7 @@ func (e *Exporter) scrapeTimer(key string, json *gabs.Container) ([]prometheus.C
 	counter, new := e.Counters.Fetch(name+"_count", help)
 	counter.WithLabelValues().Set(count)
 
-	rates, _ := e.Gauges.Fetch(name+"_rate", help, "window")
+	rates, _ := e.Gauges.Fetch(name+"_rate", help, "rate")
 	percentiles, _ := e.Gauges.Fetch(name, help, "percentile")
 	min, _ := e.Gauges.Fetch(name+"_min", help)
 	max, _ := e.Gauges.Fetch(name+"_max", help)
