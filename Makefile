@@ -5,7 +5,7 @@ TEST     ?= ./...
 default: test build
 
 test:
-	go test -v $(TEST)
+	go test -v -run=$(RUN) $(TEST)
 
 build: clean
 	go build -o bin/$(TARGET)

@@ -33,7 +33,7 @@ func Test_container_key(t *testing.T) {
 
 func Test_get_or_create_counter(t *testing.T) {
 	container := NewCounterContainer()
-	_, new := container.Fetch("foo")
+	_, new := container.Fetch("foo", "")
 
 	if !new {
 		t.Fatal("expected a new counter")
@@ -42,7 +42,7 @@ func Test_get_or_create_counter(t *testing.T) {
 		t.Fatalf("expected a counter, got %d counters", len(container.counters))
 	}
 
-	_, new = container.Fetch("foo")
+	_, new = container.Fetch("foo", "")
 	if new {
 		t.Fatal("expected an existing counter")
 	}
@@ -53,7 +53,7 @@ func Test_get_or_create_counter(t *testing.T) {
 
 func Test_get_or_create_gauge(t *testing.T) {
 	container := NewGaugeContainer()
-	_, new := container.Fetch("foo")
+	_, new := container.Fetch("foo", "")
 
 	if !new {
 		t.Fatal("expected a new gauge")
@@ -62,7 +62,7 @@ func Test_get_or_create_gauge(t *testing.T) {
 		t.Fatalf("expected a gauge, got %d gauges", len(container.gauges))
 	}
 
-	_, new = container.Fetch("foo")
+	_, new = container.Fetch("foo", "")
 	if new {
 		t.Fatal("expected an existing gauge")
 	}
