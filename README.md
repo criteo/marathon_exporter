@@ -10,13 +10,13 @@ This exporter exposes Marathon's Codahale/Dropwizard metrics via its `/metrics` 
 $ go get github.com/gettyimages/marathon_exporter
 ```
 
-- or -
+*\-or-*
 
 ```sh
 $ docker pull gettyimages/marathon_exporter
 ```
 
-- or -
+*\-or-*
 
 ```
 make deps && make
