@@ -10,5 +10,8 @@ test:
 build: clean
 	go build -o bin/$(TARGET)
 
+release: clean
+	GOARCH=amd64 GOOS=linux go build -ldflags "-X main.Version=$(VERSION)" -o bin/$(TARGET) .
+
 clean:
 	rm -rf bin/
