@@ -20,14 +20,13 @@ import (
 const namespace = "marathon"
 
 type Exporter struct {
-	uri            *url.URL
-	metricsVersion string
-	duration       prometheus.Gauge
-	scrapeError    prometheus.Gauge
-	totalErrors    prometheus.Counter
-	totalScrapes   prometheus.Counter
-	Counters       *CounterContainer
-	Gauges         *GaugeContainer
+	uri          *url.URL
+	duration     prometheus.Gauge
+	scrapeError  prometheus.Gauge
+	totalErrors  prometheus.Counter
+	totalScrapes prometheus.Counter
+	Counters     *CounterContainer
+	Gauges       *GaugeContainer
 }
 
 // Describe implements prometheus.Collector.
@@ -112,13 +111,19 @@ func (e *Exporter) scrapeMetrics(json *gabs.Container, ch chan<- prometheus.Metr
 	for key, element := range elements {
 		switch key {
 		case "message":
-			log.Debugf("Problem collecting metrics: %s\n", element.Data().(string))
+			log.Errorf("Problem collecting metrics: %s\n", element.Data().(string))
 			return
 		case "version":
-			if e.metricsVersion == "" {
-				e.metricsVersion = element.Data().(string)
-				log.Infof("Collecting Marathon metrics version: %s\n", e.metricsVersion)
+			data := element.Data()
+			version, ok := data.(string)
+			if !ok {
+				log.Errorf(fmt.Sprintf("Bad conversion! Unexpected value \"%v\" for version\n", data))
+			} else {
+				gauge, _ := e.Gauges.Fetch("metrics_version", "Marathon metrics version", "version")
+				gauge.WithLabelValues(version).Set(1)
+				gauge.Collect(ch)
 			}
+
 		case "counters":
 			e.scrapeCounters(element, ch)
 		case "gauges":
