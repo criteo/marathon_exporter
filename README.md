@@ -30,7 +30,7 @@ Usage of marathon_exporter:
   -marathon.uri string
         URI of Marathon (default "http://marathon.mesos:8080")
   -web.listen-address string
-        Address to listen on for web interface and telemetry. (default ":9099")
+        Address to listen on for web interface and telemetry. (default ":9088")
   -web.telemetry-path string
         Path under which to expose metrics. (default "/metrics")
   -log.format value

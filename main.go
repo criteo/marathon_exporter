@@ -15,7 +15,7 @@ import (
 
 var (
 	listenAddress = flag.String(
-		"web.listen-address", ":9099",
+		"web.listen-address", ":9088",
 		"Address to listen on for web interface and telemetry.")
 
 	metricsPath = flag.String(
