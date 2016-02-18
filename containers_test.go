@@ -31,7 +31,7 @@ func Test_container_key(t *testing.T) {
 	}
 }
 
-func Test_get_or_create_counter(t *testing.T) {
+func Test_container_fetch_counter(t *testing.T) {
 	container := NewCounterContainer()
 	_, new := container.Fetch("foo", "")
 
@@ -51,7 +51,7 @@ func Test_get_or_create_counter(t *testing.T) {
 	}
 }
 
-func Test_get_or_create_gauge(t *testing.T) {
+func Test_container_fetch_gauge(t *testing.T) {
 	container := NewGaugeContainer()
 	_, new := container.Fetch("foo", "")
 

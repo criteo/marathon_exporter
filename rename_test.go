@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-func Test_metric_rename(t *testing.T) {
+func Test_rename_metric(t *testing.T) {
 	cases := []struct {
 		name   string
 		expect string
@@ -36,7 +36,7 @@ func Test_metric_rename(t *testing.T) {
 	}
 }
 
-func Test_rate_rename(t *testing.T) {
+func Test_rename_rate(t *testing.T) {
 	cases := []struct {
 		name   string
 		expect string

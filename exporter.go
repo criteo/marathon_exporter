@@ -1,13 +1,8 @@
 package main
 
 import (
-	"crypto/tls"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -20,7 +15,7 @@ import (
 const namespace = "marathon"
 
 type Exporter struct {
-	uri          *url.URL
+	scraper      Scraper
 	duration     prometheus.Gauge
 	scrapeError  prometheus.Gauge
 	totalErrors  prometheus.Counter
@@ -72,34 +67,15 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 		}
 	}(time.Now())
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			Dial: (&net.Dialer{
-				Timeout: 10 * time.Second,
-			}).Dial,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
-	}
-
-	response, err := client.Get(fmt.Sprintf("%v/metrics", e.uri))
+	content, err := e.scraper.Scrape()
 	if err != nil {
-		log.Debugf("Problem connecting to metrics endpoint: %v\n", err)
+		log.Debugf("Problem scraping metrics endpoint: %v\n", err)
 		return
 	}
 
-	body, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
+	json, err := gabs.ParseJSON(content)
 	if err != nil {
-		log.Debugf("Problem reading metrics response body: %v\n", err)
-		return
-	}
-
-	json, err := gabs.ParseJSON(body)
-	if err != nil {
-		log.Debugf("Problem parsing metrics response body: %v\n", err)
+		log.Debugf("Problem parsing metrics response: %v\n", err)
 		return
 	}
 
@@ -379,9 +355,9 @@ func (e *Exporter) scrapeTimer(key string, json *gabs.Container) ([]prometheus.C
 	return []prometheus.Collector{counter, rates, percentiles, max, mean, min, stddev}, nil
 }
 
-func NewExporter(uri *url.URL) *Exporter {
+func NewExporter(s Scraper) *Exporter {
 	return &Exporter{
-		uri:      uri,
+		scraper:  s,
 		Counters: NewCounterContainer(),
 		Gauges:   NewGaugeContainer(),
 		duration: prometheus.NewGauge(prometheus.GaugeOpts{

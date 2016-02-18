@@ -76,7 +76,7 @@ func main() {
 		time.Sleep(retryTimeout)
 	}
 
-	exporter := NewExporter(uri)
+	exporter := NewExporter(&scraper{uri})
 	prometheus.MustRegister(exporter)
 
 	http.Handle(*metricsPath, prometheus.Handler())
