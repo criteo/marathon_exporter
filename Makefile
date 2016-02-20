@@ -19,6 +19,8 @@ release: clean
 publish: release
 	docker build -t gettyimages/$(TARGET):$(VERSION) .
 	docker push gettyimages/$(TARGET):$(VERSION)
+	docker tag gettyimages/$(TARGET):$(VERSION) gettyimages/$(TARGET):latest
+	docker push gettyimages/$(TARGET):latest
 
 clean:
 	rm -rf bin/
