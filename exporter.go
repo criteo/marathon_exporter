@@ -101,99 +101,98 @@ func (e *Exporter) scrapeMetrics(json *gabs.Container, ch chan<- prometheus.Metr
 			}
 
 		case "counters":
-			e.scrapeCounters(element, ch)
+			e.scrapeCounters(element)
 		case "gauges":
-			e.scrapeGauges(element, ch)
+			e.scrapeGauges(element)
 		case "histograms":
-			e.scrapeHistograms(element, ch)
+			e.scrapeHistograms(element)
 		case "meters":
-			e.scrapeMeters(element, ch)
+			e.scrapeMeters(element)
 		case "timers":
-			e.scrapeTimers(element, ch)
+			e.scrapeTimers(element)
 		}
+	}
+
+	for _, counter := range e.Counters.counters {
+		counter.Collect(ch)
+	}
+	for _, gauge := range e.Gauges.gauges {
+		gauge.Collect(ch)
 	}
 }
 
-func (e *Exporter) scrapeCounters(json *gabs.Container, ch chan<- prometheus.Metric) {
+func (e *Exporter) scrapeCounters(json *gabs.Container) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
-		counter, err := e.scrapeCounter(key, element)
-		if err == nil {
-			counter.Collect(ch)
-		} else {
+		new, err := e.scrapeCounter(key, element)
+		if err != nil {
 			log.Debug(err)
+		} else if new {
+			log.Infof("Added counter %q\n", key)
 		}
 	}
 }
 
-func (e *Exporter) scrapeCounter(key string, json *gabs.Container) (prometheus.Collector, error) {
+func (e *Exporter) scrapeCounter(key string, json *gabs.Container) (bool, error) {
 	data := json.Path("count").Data()
 	count, ok := data.(float64)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("Bad conversion! Unexpected value \"%v\" for counter %s\n", data, key))
+		return false, errors.New(fmt.Sprintf("Bad conversion! Unexpected value \"%v\" for counter %s\n", data, key))
 	}
 
 	name := renameMetric(key)
 	help := fmt.Sprintf(counterHelp, key)
 	counter, new := e.Counters.Fetch(name, help)
 	counter.WithLabelValues().Set(count)
-	if new {
-		log.Infof("Added counter %s with initial count %v\n", name, count)
-	}
-	return counter, nil
+	return new, nil
 }
 
-func (e *Exporter) scrapeGauges(json *gabs.Container, ch chan<- prometheus.Metric) {
+func (e *Exporter) scrapeGauges(json *gabs.Container) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
-		gauge, err := e.scrapeGauge(key, element)
-		if err == nil {
-			gauge.Collect(ch)
-		} else {
+		new, err := e.scrapeGauge(key, element)
+		if err != nil {
 			log.Debug(err)
+		} else if new {
+			log.Infof("Added gauge %q\n", key)
 		}
 	}
 }
 
-func (e *Exporter) scrapeGauge(key string, json *gabs.Container) (prometheus.Collector, error) {
+func (e *Exporter) scrapeGauge(key string, json *gabs.Container) (bool, error) {
 	data := json.Path("value").Data()
 	value, ok := data.(float64)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("Bad conversion! Unexpected value \"%v\" for gauge %s\n", data, key))
+		return false, errors.New(fmt.Sprintf("Bad conversion! Unexpected value \"%v\" for gauge %s\n", data, key))
 	}
 
 	name := renameMetric(key)
 	help := fmt.Sprintf(gaugeHelp, key)
 	gauge, new := e.Gauges.Fetch(name, help)
 	gauge.WithLabelValues().Set(value)
-	if new {
-		log.Infof("Added gauge %s with initial value %v\n", name, value)
-	}
-	return gauge, nil
+	return new, nil
 }
 
-func (e *Exporter) scrapeMeters(json *gabs.Container, ch chan<- prometheus.Metric) {
+func (e *Exporter) scrapeMeters(json *gabs.Container) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
-		metrics, err := e.scrapeMeter(key, element)
+		new, err := e.scrapeMeter(key, element)
 		if err != nil {
 			log.Debug(err)
-		} else {
-			for _, metric := range metrics {
-				metric.Collect(ch)
-			}
+		} else if new {
+			log.Infof("Added meter %q\n", key)
 		}
 	}
 }
 
-func (e *Exporter) scrapeMeter(key string, json *gabs.Container) ([]prometheus.Collector, error) {
+func (e *Exporter) scrapeMeter(key string, json *gabs.Container) (bool, error) {
 	count, ok := json.Path("count").Data().(float64)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("Bad meter! %s has no count\n", key))
+		return false, errors.New(fmt.Sprintf("Bad meter! %s has no count\n", key))
 	}
 	units, ok := json.Path("units").Data().(string)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("Bad meter! %s has no units\n", key))
+		return false, errors.New(fmt.Sprintf("Bad meter! %s has no units\n", key))
 	}
 
 	name := renameMetric(key)
@@ -211,30 +210,25 @@ func (e *Exporter) scrapeMeter(key string, json *gabs.Container) ([]prometheus.C
 		}
 	}
 
-	if new {
-		log.Infof("Adding meter %s with initial count %v\n", name, count)
-	}
-	return []prometheus.Collector{counter, gauge}, nil
+	return new, nil
 }
 
-func (e *Exporter) scrapeHistograms(json *gabs.Container, ch chan<- prometheus.Metric) {
+func (e *Exporter) scrapeHistograms(json *gabs.Container) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
-		metrics, err := e.scrapeHistogram(key, element)
+		new, err := e.scrapeHistogram(key, element)
 		if err != nil {
 			log.Debug(err)
-		} else {
-			for _, metric := range metrics {
-				metric.Collect(ch)
-			}
+		} else if new {
+			log.Infof("Added histogram %q\n", key)
 		}
 	}
 }
 
-func (e *Exporter) scrapeHistogram(key string, json *gabs.Container) ([]prometheus.Collector, error) {
+func (e *Exporter) scrapeHistogram(key string, json *gabs.Container) (bool, error) {
 	count, ok := json.Path("count").Data().(float64)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("Bad historgram! %s has no count\n", key))
+		return false, errors.New(fmt.Sprintf("Bad historgram! %s has no count\n", key))
 	}
 
 	name := renameMetric(key)
@@ -274,35 +268,29 @@ func (e *Exporter) scrapeHistogram(key string, json *gabs.Container) ([]promethe
 		}
 	}
 
-	if new {
-		log.Infof("Adding histogram %s with initial count %v\n", name, count)
-	}
-
-	return []prometheus.Collector{counter, percentiles, max, mean, min, stddev}, nil
+	return new, nil
 }
 
-func (e *Exporter) scrapeTimers(json *gabs.Container, ch chan<- prometheus.Metric) {
+func (e *Exporter) scrapeTimers(json *gabs.Container) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
-		metrics, err := e.scrapeTimer(key, element)
+		new, err := e.scrapeTimer(key, element)
 		if err != nil {
 			log.Debug(err)
-		} else {
-			for _, metric := range metrics {
-				metric.Collect(ch)
-			}
+		} else if new {
+			log.Infof("Added timer %q\n", key)
 		}
 	}
 }
 
-func (e *Exporter) scrapeTimer(key string, json *gabs.Container) ([]prometheus.Collector, error) {
+func (e *Exporter) scrapeTimer(key string, json *gabs.Container) (bool, error) {
 	count, ok := json.Path("count").Data().(float64)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("Bad timer! %s has no count\n", key))
+		return false, errors.New(fmt.Sprintf("Bad timer! %s has no count\n", key))
 	}
 	units, ok := json.Path("rate_units").Data().(string)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("Bad timer! %s has no units\n", key))
+		return false, errors.New(fmt.Sprintf("Bad timer! %s has no units\n", key))
 	}
 
 	name := renameMetric(key)
@@ -348,11 +336,7 @@ func (e *Exporter) scrapeTimer(key string, json *gabs.Container) ([]prometheus.C
 		}
 	}
 
-	if new {
-		log.Infof("Adding timer %s with initial count %v\n", name, count)
-	}
-
-	return []prometheus.Collector{counter, rates, percentiles, max, mean, min, stddev}, nil
+	return new, nil
 }
 
 func NewExporter(s Scraper) *Exporter {
