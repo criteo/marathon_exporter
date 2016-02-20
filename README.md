@@ -1,6 +1,6 @@
-# Mesos Prometheus Exporter
+# Marathon Prometheus Exporter
 
-[Marathon](https://mesosphere.github.io/marathon) metrics exporter for [Prometheus](http://prometheus.io)
+A [Prometheus](http://prometheus.io) metrics exporter for the [Marathon](https://mesosphere.github.io/marathon) Mesos framework.
 
 This exporter exposes Marathon's Codahale/Dropwizard metrics via its `/metrics` endpoint. To learn more, visit the [Marathon metrics doc](http://mesosphere.github.io/marathon/docs/metrics.html).
 
