@@ -30,9 +30,12 @@ var (
 func marathonConnect(uri *url.URL) error {
 	config := marathon.NewDefaultConfig()
 	config.URL = uri.String()
-	if passwd, ok := uri.User.Password(); ok {
-		config.HTTPBasicPassword = passwd
-		config.HTTPBasicAuthUser = uri.User.Username()
+
+	if uri.User != nil {
+		if passwd, ok := uri.User.Password(); ok {
+			config.HTTPBasicPassword = passwd
+			config.HTTPBasicAuthUser = uri.User.Username()
+		}
 	}
 	config.HTTPClient = &http.Client{
 		Timeout: 10 * time.Second,
