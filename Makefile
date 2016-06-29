@@ -14,7 +14,10 @@ build: clean
 	go build -v -o bin/$(TARGET)
 
 release: clean
-	GOARCH=amd64 GOOS=linux go build -ldflags "-X main.Version=$(VERSION)" -o bin/$(TARGET) .
+	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build \
+		-a -tags netgo \
+		-ldflags "-X main.Version=$(VERSION)" \
+		-o bin/$(TARGET) .
 
 publish: release
 	docker build -t gettyimages/$(TARGET):$(VERSION) .
