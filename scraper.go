@@ -11,14 +11,14 @@ import (
 )
 
 type Scraper interface {
-	Scrape() ([]byte, error)
+	Scrape(path string) ([]byte, error)
 }
 
 type scraper struct {
 	uri *url.URL
 }
 
-func (s *scraper) Scrape() ([]byte, error) {
+func (s *scraper) Scrape(path string) ([]byte, error) {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
@@ -31,7 +31,7 @@ func (s *scraper) Scrape() ([]byte, error) {
 		},
 	}
 
-	response, err := client.Get(fmt.Sprintf("%v/metrics", s.uri))
+	response, err := client.Get(fmt.Sprintf("%v/%s", s.uri, path))
 	if err != nil {
 		return nil, err
 	}

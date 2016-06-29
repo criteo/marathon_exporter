@@ -67,7 +67,41 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 		}
 	}(time.Now())
 
-	content, err := e.scraper.Scrape()
+	if err = e.exportApps(ch); err != nil {
+		return
+	}
+	if err = e.exportMetrics(ch); err != nil {
+		return
+	}
+
+	for _, counter := range e.Counters.counters {
+		counter.Collect(ch)
+	}
+
+	for _, gauge := range e.Gauges.gauges {
+		gauge.Collect(ch)
+	}
+}
+
+func (e *Exporter) exportApps(ch chan<- prometheus.Metric) (err error) {
+	content, err := e.scraper.Scrape("v2/apps")
+	if err != nil {
+		log.Debugf("Problem scraping v2/apps endpoint: %v\n", err)
+		return
+	}
+
+	json, err := gabs.ParseJSON(content)
+	if err != nil {
+		log.Debugf("Problem parsing v2/apps response: %v\n", err)
+		return
+	}
+
+	e.scrapeApps(json, ch)
+	return
+}
+
+func (e *Exporter) exportMetrics(ch chan<- prometheus.Metric) (err error) {
+	content, err := e.scraper.Scrape("metrics")
 	if err != nil {
 		log.Debugf("Problem scraping metrics endpoint: %v\n", err)
 		return
@@ -80,6 +114,53 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 	}
 
 	e.scrapeMetrics(json, ch)
+	return
+}
+
+func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric) {
+	elements, _ := json.S("apps").Children()
+	states := map[string]string{
+		"running":   "tasksRunning",
+		"staged":    "tasksStaged",
+		"healthy":   "tasksHealthy",
+		"unhealthy": "tasksUnhealthy",
+	}
+
+	for _, app := range elements {
+		id := app.Path("id").Data().(string)
+		name := "app_instances"
+
+		gauge, new := e.Gauges.Fetch(name, "Marathon app instance count", "app")
+		if new {
+			log.Infof("Added gauge %q\n", name)
+		}
+
+		data := app.Path("instances").Data()
+		count, ok := data.(float64)
+		if !ok {
+			log.Debugf(fmt.Sprintf("Bad conversion! Unexpected value \"%v\" for number of app instances\n", data))
+			continue
+		}
+
+		gauge.WithLabelValues(id).Set(count)
+
+		for key, value := range states {
+			name := fmt.Sprintf("app_task_%s", key)
+			gauge, new := e.Gauges.Fetch(name, fmt.Sprintf("Marathon app task %s count", key), "app")
+			if new {
+				log.Infof("Added gauge %q\n", name)
+			}
+
+			data := app.Path(value).Data()
+			count, ok := data.(float64)
+			if !ok {
+				log.Debugf(fmt.Sprintf("Bad conversion! Unexpected value \"%v\" for number of \"%s\" tasks\n", data, key))
+				continue
+			}
+
+			gauge.WithLabelValues(id).Set(count)
+		}
+	}
 }
 
 func (e *Exporter) scrapeMetrics(json *gabs.Container, ch chan<- prometheus.Metric) {
@@ -111,13 +192,6 @@ func (e *Exporter) scrapeMetrics(json *gabs.Container, ch chan<- prometheus.Metr
 		case "timers":
 			e.scrapeTimers(element)
 		}
-	}
-
-	for _, counter := range e.Counters.counters {
-		counter.Collect(ch)
-	}
-	for _, gauge := range e.Gauges.gauges {
-		gauge.Collect(ch)
 	}
 }
 

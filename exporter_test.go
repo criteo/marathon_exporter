@@ -20,7 +20,7 @@ type testScraper struct {
 	results string
 }
 
-func (s *testScraper) Scrape() ([]byte, error) {
+func (s *testScraper) Scrape(path string) ([]byte, error) {
 	return []byte(s.results), nil
 }
 
