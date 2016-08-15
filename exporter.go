@@ -18,6 +18,7 @@ type Exporter struct {
 	scraper      Scraper
 	duration     prometheus.Gauge
 	scrapeError  prometheus.Gauge
+	up           prometheus.Gauge
 	totalErrors  prometheus.Counter
 	totalScrapes prometheus.Counter
 	Counters     *CounterContainer
@@ -51,6 +52,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- e.totalScrapes
 	ch <- e.totalErrors
 	ch <- e.scrapeError
+	ch <- e.up
 }
 
 func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
@@ -61,9 +63,11 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 		e.duration.Set(time.Since(begin).Seconds())
 		if err == nil {
 			e.scrapeError.Set(0)
+			e.up.Set(1)
 		} else {
 			e.totalErrors.Inc()
 			e.scrapeError.Set(1)
+			e.up.Set(0)
 		}
 	}(time.Now())
 
@@ -423,6 +427,11 @@ func NewExporter(s Scraper) *Exporter {
 			Subsystem: "exporter",
 			Name:      "last_scrape_duration_seconds",
 			Help:      "Duration of the last scrape of metrics from Marathon.",
+		}),
+		up: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "up",
+			Help:      "Whether the last scrape of metrics from Marathon resulted in an error (0 for error, 1 for success).",
 		}),
 		scrapeError: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
