@@ -1,11 +1,8 @@
-VERSION  := 0.3.2
+VERSION  := $$(git describe --tags --always)
 TARGET   := marathon_exporter
 TEST     ?= ./...
 
 default: test build
-
-deps:
-	go get -v -u ./...
 
 test:
 	go test -v -run=$(RUN) $(TEST)
