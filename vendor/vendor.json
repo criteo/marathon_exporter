@@ -15,10 +15,36 @@
 			"revisionTime": "2016-02-29T21:34:45Z"
 		},
 		{
+			"checksumSHA1": "O/eUfUoi7lWgZiipUP939AAdKk4=",
+			"origin": "github.com/gambol99/go-marathon/vendor/github.com/donovanhide/eventsource",
+			"path": "github.com/donovanhide/eventsource",
+			"revision": "e6dc89572b363835b1222dce4810c83d7757514e",
+			"revisionTime": "2016-11-07T14:32:42Z"
+		},
+		{
+			"checksumSHA1": "MLTVo33+2kBWuF5aAVMzOg8Ku8M=",
+			"path": "github.com/gambol99/go-marathon",
+			"revision": "e6dc89572b363835b1222dce4810c83d7757514e",
+			"revisionTime": "2016-11-07T14:32:42Z"
+		},
+		{
 			"checksumSHA1": "5MVpi9U1WCrzZ1VMMn61Fc+trE0=",
 			"path": "github.com/golang/protobuf/proto",
 			"revision": "c3cefd437628a0b7d31b34fe44b3a7a540e98527",
 			"revisionTime": "2016-07-27T17:26:17Z"
+		},
+		{
+			"checksumSHA1": "yyAzHoiVLu+xywYI2BDyRq6sOqE=",
+			"origin": "github.com/gambol99/go-marathon/vendor/github.com/google/go-querystring/query",
+			"path": "github.com/google/go-querystring/query",
+			"revision": "e6dc89572b363835b1222dce4810c83d7757514e",
+			"revisionTime": "2016-11-07T14:32:42Z"
+		},
+		{
+			"checksumSHA1": "17v7y+3r/KG8PPYIolf+zSAifbs=",
+			"path": "github.com/jeffail/gabs",
+			"revision": "855034b6b7a3b7144977efcaefe72d2c64b0d039",
+			"revisionTime": "2016-08-09T16:55:30Z"
 		},
 		{
 			"checksumSHA1": "bKMZjd2wPw13VwoE7mBeSv5djFA=",
