@@ -1,9 +1,21 @@
+sudo: required
+
+services:
+  - docker
+
 language: go
 go:
-- 1.7
-install: make release
+  - 1.7
+
+script:
+  - make release
+
+#before_deploy:
+#  - make publish
+
 deploy:
   provider: releases
+  skip_cleanup: true
   api_key:
     secure: oJ5oD3x3lSvcQvt0CO7XpFIN2I1OimP6pyT7cJxsffqLvxdz1u6tF12Uq737c1FRvtbmZpkYwrkg+90eGA4Qym4nVLynyt1zCR6aP5O0yJ8fMaJRYyNFsGfSX2YSSlIQmrnj+L8XNpjvkuOg7yqc3s/RYT5Vngt2QyiZPqFjK2+FweQh6IdEB11UTtYjhz+hWPu3NoMiNGJ91K7p4i0HWkySFsI5nmOZZNYjeBbPu3gpnerZ1K7ybtchDh05uFjen7O3ww5ZK+4/LD1rOK+SX1kO5OCnkyh/ZFRO3q07krhK64Z8yVOWsi71fOw+8/hSA0eAu9WZ3/AA14zMUNuNVHoGBR4hEEDboBKtvG0fjtaODdGSw5AW3aHWcLxq/11MmbjZFt/yN1M4A3fP3pIPcjoz2GdSh3hhWe7GIumEc1kHlCD2w2I310x489O2vdnwbvRSWM7/vKVOqRPehyaNtB4rlg8mJb35d2taVjcJk+3UjZ9LWKt8v3jsYNZS2Z1tu+E/tOIA4JY5V0b3l5K512MbHJ+CPewM4+XJYevo8gYM6m8RSLqFke6vqvClb/ajF+FdV9pwKGwU6PH8lZrMMIvwgb+fCWAwFQqgONYgm+mt6uyj7ai7nWNiyoLru25CRmv1SFrQkktT93AWJpuDaMm20SHUMtkZaUnM3nRuN14=
   file: bin/marathon_exporter
