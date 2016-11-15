@@ -124,10 +124,14 @@ func (e *Exporter) exportMetrics(ch chan<- prometheus.Metric) (err error) {
 func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric) {
 	elements, _ := json.S("apps").Children()
 	states := map[string]string{
-		"running":   "tasksRunning",
-		"staged":    "tasksStaged",
-		"healthy":   "tasksHealthy",
-		"unhealthy": "tasksUnhealthy",
+		"running":    "tasksRunning",
+		"staged":     "tasksStaged",
+		"healthy":    "tasksHealthy",
+		"unhealthy":  "tasksUnhealthy",
+		"cpus":       "cpus",
+		"mem_in_mb":  "mem",
+		"disk_in_mb": "disk",
+		"gpus":       "gpus",
 	}
 
 	for _, app := range elements {
