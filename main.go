@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/gambol99/go-marathon"
+	"github.com/matt-deboer/go-marathon"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
 )

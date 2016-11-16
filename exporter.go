@@ -88,7 +88,7 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 }
 
 func (e *Exporter) exportApps(ch chan<- prometheus.Metric) (err error) {
-	content, err := e.scraper.Scrape("v2/apps")
+	content, err := e.scraper.Scrape("v2/apps?embed=apps.taskStats")
 	if err != nil {
 		log.Debugf("Problem scraping v2/apps endpoint: %v\n", err)
 		return
@@ -132,6 +132,7 @@ func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric)
 		"mem_in_mb":  "mem",
 		"disk_in_mb": "disk",
 		"gpus":       "gpus",
+		"avg_uptime": "taskStats.startedAfterLastScaling.stats.lifeTime.averageSeconds",
 	}
 
 	for _, app := range elements {

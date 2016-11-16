@@ -47,6 +47,12 @@
 			"revisionTime": "2016-08-09T16:55:30Z"
 		},
 		{
+			"checksumSHA1": "AEmfVw8uamcLRIEe1v74vDIIPaE=",
+			"path": "github.com/matt-deboer/go-marathon",
+			"revision": "2e43425f10404af7a7db643b9f8c10edf2b0bf8f",
+			"revisionTime": "2016-11-16T00:53:54Z"
+		},
+		{
 			"checksumSHA1": "bKMZjd2wPw13VwoE7mBeSv5djFA=",
 			"path": "github.com/matttproud/golang_protobuf_extensions/pbutil",
 			"revision": "c12348ce28de40eed0136aa2b644d0ee0650e56c",
