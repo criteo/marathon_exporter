@@ -135,15 +135,15 @@ func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric)
 		"avg_uptime": "taskStats.startedAfterLastScaling.stats.lifeTime.averageSeconds",
 	}
 
+	name := "app_instances"
+	gauge, new := e.Gauges.Fetch(name, "Marathon app instance count", "app")
+	if new {
+		log.Infof("Added gauge %q\n", name)
+	}
+	gauge.Reset()
+
 	for _, app := range elements {
 		id := app.Path("id").Data().(string)
-		name := "app_instances"
-
-		gauge, new := e.Gauges.Fetch(name, "Marathon app instance count", "app")
-		if new {
-			log.Infof("Added gauge %q\n", name)
-		}
-
 		data := app.Path("instances").Data()
 		count, ok := data.(float64)
 		if !ok {
