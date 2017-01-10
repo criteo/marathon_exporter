@@ -18,12 +18,14 @@ const (
 )
 
 type CounterContainer struct {
-	counters map[string]*prometheus.CounterVec
+	counters  map[string]*prometheus.CounterVec
+	namespace string
 }
 
-func NewCounterContainer() *CounterContainer {
+func NewCounterContainer(namespace string) *CounterContainer {
 	return &CounterContainer{
-		counters: make(map[string]*prometheus.CounterVec),
+		counters:  make(map[string]*prometheus.CounterVec),
+		namespace: namespace,
 	}
 }
 
@@ -33,7 +35,7 @@ func (c *CounterContainer) Fetch(name, help string, labels ...string) (*promethe
 
 	if !exists {
 		counter = prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: c.namespace,
 			Name:      name,
 			Help:      help,
 		}, labels)
@@ -45,12 +47,14 @@ func (c *CounterContainer) Fetch(name, help string, labels ...string) (*promethe
 }
 
 type GaugeContainer struct {
-	gauges map[string]*prometheus.GaugeVec
+	gauges    map[string]*prometheus.GaugeVec
+	namespace string
 }
 
-func NewGaugeContainer() *GaugeContainer {
+func NewGaugeContainer(namespace string) *GaugeContainer {
 	return &GaugeContainer{
-		gauges: make(map[string]*prometheus.GaugeVec),
+		gauges:    make(map[string]*prometheus.GaugeVec),
+		namespace: namespace,
 	}
 }
 
@@ -60,7 +64,7 @@ func (c *GaugeContainer) Fetch(name, help string, labels ...string) (*prometheus
 
 	if !exists {
 		gauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: namespace,
+			Namespace: c.namespace,
 			Name:      name,
 			Help:      help,
 		}, labels)
