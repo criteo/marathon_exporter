@@ -32,7 +32,7 @@ func Test_container_key(t *testing.T) {
 }
 
 func Test_container_fetch_counter(t *testing.T) {
-	container := NewCounterContainer()
+	container := NewCounterContainer("marathon")
 	_, new := container.Fetch("foo", "")
 
 	if !new {
@@ -52,7 +52,7 @@ func Test_container_fetch_counter(t *testing.T) {
 }
 
 func Test_container_fetch_gauge(t *testing.T) {
-	container := NewGaugeContainer()
+	container := NewGaugeContainer("marathon")
 	_, new := container.Fetch("foo", "")
 
 	if !new {

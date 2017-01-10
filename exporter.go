@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/common/log"
 )
 
-const namespace = "marathon"
+const defaultNamespace = "marathon"
 
 type Exporter struct {
 	scraper      Scraper
@@ -71,6 +71,9 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 		}
 	}(time.Now())
 
+	// Rebuild gauges & coutners to avoid stale values
+	e.Gauges = NewGaugeContainer(e.Gauges.namespace)
+	e.Counters = NewCounterContainer(e.Counters.namespace)
 	if err = e.exportApps(ch); err != nil {
 		return
 	}
@@ -422,11 +425,11 @@ func (e *Exporter) scrapeTimer(key string, json *gabs.Container) (bool, error) {
 	return new, nil
 }
 
-func NewExporter(s Scraper) *Exporter {
+func NewExporter(s Scraper, namespace string) *Exporter {
 	return &Exporter{
 		scraper:  s,
-		Counters: NewCounterContainer(),
-		Gauges:   NewGaugeContainer(),
+		Counters: NewCounterContainer(namespace),
+		Gauges:   NewGaugeContainer(namespace),
 		duration: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: "exporter",
