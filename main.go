@@ -25,10 +25,6 @@ var (
 	marathonUri = flag.String(
 		"marathon.uri", "http://marathon.mesos:8080",
 		"URI of Marathon")
-
-	namespace = flag.String(
-		"namespace", "marathon",
-		"Namespace -- used to prefix all metric names with '{namespace}_'")
 )
 
 func marathonConnect(uri *url.URL) error {
@@ -87,7 +83,7 @@ func main() {
 		time.Sleep(retryTimeout)
 	}
 
-	exporter := NewExporter(&scraper{uri}, *namespace)
+	exporter := NewExporter(&scraper{uri}, defaultNamespace)
 	prometheus.MustRegister(exporter)
 
 	http.Handle(*metricsPath, prometheus.Handler())
