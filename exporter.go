@@ -139,7 +139,7 @@ func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric)
 	}
 
 	name := "app_instances"
-	gauge, new := e.Gauges.Fetch(name, "Marathon app instance count", "app")
+	gauge, new := e.Gauges.Fetch(name, "Marathon app instance count", "app", "app_version")
 	if new {
 		log.Infof("Added gauge %q\n", name)
 	}
@@ -147,6 +147,7 @@ func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric)
 
 	for _, app := range elements {
 		id := app.Path("id").Data().(string)
+		version := app.Path("version").Data().(string)
 		data := app.Path("instances").Data()
 		count, ok := data.(float64)
 		if !ok {
@@ -154,7 +155,7 @@ func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric)
 			continue
 		}
 
-		gauge.WithLabelValues(id).Set(count)
+		gauge.WithLabelValues(id, version).Set(count)
 
 		for key, value := range states {
 			name := fmt.Sprintf("app_task_%s", key)
@@ -170,7 +171,7 @@ func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric)
 				continue
 			}
 
-			gauge.WithLabelValues(id).Set(count)
+			gauge.WithLabelValues(id, version).Set(count)
 		}
 	}
 }
