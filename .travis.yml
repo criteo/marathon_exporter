@@ -15,20 +15,18 @@ deploy:
   on:
     repo: gettyimages/marathon_exporter
     tags: true
-  after_success:
-    - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-    - export REPO=gettyimages/marathon_exporter
-    - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH ; fi`
-    - docker build -f Dockerfile -t $REPO:$COMMIT .
-    - docker tag $REPO:$COMMIT $REPO:$TAG
-    - docker push $REPO:$TAG
-    - docker tag $REPO:$COMMIT $REPO:latest
-    - docker push $REPO:latest
-
+after_deploy:
+  - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+  - export REPO=gettyimages/marathon_exporter
+  - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH ; fi`
+  - docker build -f Dockerfile -t $REPO:$COMMIT .
+  - docker tag $REPO:$COMMIT $REPO:$TAG
+  - docker push $REPO:$TAG
+  - docker tag $REPO:$COMMIT $REPO:latest
+  - docker push $REPO:latest
 
 env:
   global:
   - secure: LsEsjlRNGVYaXIzbQfxLg+j6ItgaE5sQV8AKTPcK1zbcXdAuznRi+EfVknyZCCVz6NIRGsyT5BullKZHHKltIdcgEquSIAXM3tov+r3a6mjjYDHocP/EKSRzdTPlUCs4v/en8G11polWEeQ12Fg0dYH7KEx0/JycszTVrCt8sYmiSPFtZpEllJDmDHZbavXNyP5hFjlH6h8szhxPLd2xyGDJivcRXWgGx0qewIGwsJ13jrMRq8fI453N99PRP9iO4tyztE/XO6AYqu3CvUBGJp3MyizQXL7ljUTcfcPJNWm8KcOxOrypB6tDFha6lfQomIhKNUGe0ytwpFwPVWblXlQIa/IlxPvAqolslYQAnC68ir+3FpZBvKaZPOKACumUF3RzrMM0EtZCvooDitjs1KnzQeZWS4FQqTz4FzsjvPGncBoqK+MC2A0L2NuuYHeWmTcsvLdEqC8McnS/2kdGEDed+0ZFzIN9oEQvOx1IoO83AeltnumMYW8JSacGAiCYRs5rYoqjxaExPd2jYEh1mpoh2zseKnNyJCgcTU+7/wykQaahcFR1CDimToZ/lfDt6ih2kyndj189ZYPLt+gokbU8JJ8NERse3xH2DMeBplO8zkGT1oO9uPg2OQk2M0xw9RFRB3fFdYqwSlDCOxl7jjMDgKGodjT/WX78aqXmLCw=
-  - secure: OOMMtEyD/ztSmsbHswkw8x/YIe/Qv9KeJKbgwWof5xeMGABYcdFFydmJasOlbE8zQ+VHZn/yDXHU+X7s2hbHId6JcMD51pfmzgW6iT955jX3vlur5n0/3HPeErKCgN3NYWXae7yo1vueGMWWDO6DsH71qGQsiszM25Gs9pSJmkV3LaaaWGtwKeciajHjWGR+pNBp5EeKatDRF1TraWTx5+OQljQe0SKqiAu64opb/DZIKD8mscpMHmI6MzvZkJ5DfZgbGWRQmq7WDE6FvfSJomtmvzbhrESzCJosj625aAi5Z5q6PiwO0ZfGSAUWcnhm9ptSbWwPYeyle4d6lj9+Glog+hxsorY0F43wZBxKfe2Huz+bDadVS8Sj+nnvR5viIdn08Y6GAxqNTm/SPKkDbUzwnn7r1gbGxLknqtsTUV3r+w4AUk8mpFHN2e3VLFjrR8gko+5NkZQ+KfTFuVNdO++wCkWfPA/qcE5i9flgfODZjq+QZ8Z+RoMbYosZr/7XjJ6W5xQoJEHj4XSJxuBqcOOFsEEK4OecjOb+fGL8DFv+n6idTMfxQGuOVjotrrcO8gVUVXIHLlmIC1LmmiCQfsybmYK7eyHA8LIu5oj/gufRUXNu5gUialRIXSKGAdYg0/tUDbf6D6C2/D/nC9yX7IrccLsaLBe7Q3dEVFqOv2s=
   - secure: A5y+5o+gzatjN2ugpQDoTw0jz26pwmpOsN1TDH12iGBywFhvo7bS+1S2+xE8KFBjG8oIo7D3mKMWWR4PiK0U39I3EFJ7MEp5YhLysFZ9lurBffi15bfIHzDV+iregaQv+kItfr2s2rvO6CakpB+QeGWpe/T9+Fu/8oPBaMmZDyju4XRcEkCwsqzgX7ELc7HjxxkP+X95BpdOlk17PNkGUS8Y5cvALHb4LzR0MmS0vK5XmgdY8JBOIaNMjaH+T0HC0pqP3JmnFCgxNWOO4lHW54e9IpTaBUG/dAan/FS1Sh4bGBjC1wyLBlJhR78oPxgQlhhEeCXm0DN34u6qUpXDia7LqBRG+bfzU3UdKg4sql1Cw/qswAw0W+CB7rvCDci/+vNlBQE1kukpOiFJBTEwDLLPZKrhyAJu5BETS8sZS/Gp7Y0u+SZtqFwZs6WQqqmW2EggBsYUm7UxUG009oqXeYD92mLjsuj9M1nv8mHr2qvAz0Mp9B38IXs/fZC6OYPQoYLUZWXJ+eIPZdfY7OMVL11AGGOZBZs4nB+lCb3ZIl6vljuUpUc33k9/3aAQjFNyzAd34lqZhsJyzEbyXfZllfgnbN08JGFBmQOPobMNT4ACLbHgRqrk0H7MrDPfWLsjKkDcAOJFGsapCSl4Sm/m3FJ1VMZ4Zr97dMEab3prXRU=
   - secure: L5XtZfAiEVWhQw+gvV9fyhWfZ7w0SgjbEgof9vAONurQMeTQXoSI4Tjr0NdEdjMyt0KbcRa66TFZLBRu34OG+z75YtwfMRYooUi64/bfBUOt+pJfUECwha+/IND/vHxMoE68ex9zpb6Q4CJthVRLANyH9DYfzPQw94zsCntRpT7y1y5MeWOdujltgFGefK/igjnfvshHCBBEstk10wuPWwYT5rTjAvSeV7dYFoLYUwd56jOGRGDxR1E8L4xJMMC8glv7dPwkDtEfQ0ss69Nnu/Wv9UNTRGvr8541QGqP8e8NYSg5j/nzcdQRIgwlphX7LuGqzz+4PwtDGvboPnCnRWbCYZiLg3TxtmqTqRYluNNt3tj8YcKzz3CohFrtjSVvk1HLu4eaJsEe84VeET4lk5zZE4wLigTtdWI1DYJGIR/EwgABJZYgV+8QgJPzytP2RnUEUjNNZlnunJ78Uy6q/lS8RHCR4ccNBjK+J52wbIns74Md2xd3K6eUD4/AcaVyROS1pk0znoG1xlVa2WGL/uFcOzeINl623oHzCgsC2dnNa6qEv8gsB+QALYEfQ2eb4425FQ0SWPxzbZu78mYMTcR/U98pqyWn6tZGaoMC24WwbyyJ5ooYtpU02vVO6tI1PPr/29NywESoPlPNdfM1MbMKbyUGgo/kwgYMYfjJtZs=
