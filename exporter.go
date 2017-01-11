@@ -159,7 +159,7 @@ func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric)
 
 		for key, value := range states {
 			name := fmt.Sprintf("app_task_%s", key)
-			gauge, new := e.Gauges.Fetch(name, fmt.Sprintf("Marathon app task %s count", key), "app")
+			gauge, new := e.Gauges.Fetch(name, fmt.Sprintf("Marathon app task %s count", key), "app", "app_version")
 			if new {
 				log.Infof("Added gauge %q\n", name)
 			}
