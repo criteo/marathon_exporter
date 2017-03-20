@@ -1,6 +1,7 @@
 # Marathon Prometheus Exporter
 
 [![Build Status](https://travis-ci.org/gettyimages/marathon_exporter.svg?branch=master)](https://travis-ci.org/gettyimages/marathon_exporter)
+[![Docker Pulls](https://img.shields.io/docker/pulls/gettyimages/marathon_exporter.svg)](https://hub.docker.com/r/gettyimages/marathon_exporter/)
 
 A [Prometheus](http://prometheus.io) metrics exporter for the [Marathon](https://mesosphere.github.io/marathon) Mesos framework.
 
