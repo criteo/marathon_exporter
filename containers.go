@@ -5,6 +5,7 @@ import (
 
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -20,6 +21,7 @@ const (
 type CounterContainer struct {
 	counters  map[string]*prometheus.CounterVec
 	namespace string
+	mutex     sync.Mutex
 }
 
 func NewCounterContainer(namespace string) *CounterContainer {
@@ -31,6 +33,8 @@ func NewCounterContainer(namespace string) *CounterContainer {
 
 func (c *CounterContainer) Fetch(name, help string, labels ...string) (*prometheus.CounterVec, bool) {
 	key := containerKey(name, labels)
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	counter, exists := c.counters[key]
 
 	if !exists {
@@ -49,6 +53,7 @@ func (c *CounterContainer) Fetch(name, help string, labels ...string) (*promethe
 type GaugeContainer struct {
 	gauges    map[string]*prometheus.GaugeVec
 	namespace string
+	mutex     sync.Mutex
 }
 
 func NewGaugeContainer(namespace string) *GaugeContainer {
@@ -60,6 +65,8 @@ func NewGaugeContainer(namespace string) *GaugeContainer {
 
 func (c *GaugeContainer) Fetch(name, help string, labels ...string) (*prometheus.GaugeVec, bool) {
 	key := containerKey(name, labels)
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	gauge, exists := c.gauges[key]
 
 	if !exists {

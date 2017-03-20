@@ -81,10 +81,14 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 		return
 	}
 
+	e.Counters.mutex.Lock()
+	defer e.Counters.mutex.Unlock()
 	for _, counter := range e.Counters.counters {
 		counter.Collect(ch)
 	}
 
+	e.Gauges.mutex.Lock()
+	defer e.Gauges.mutex.Unlock()
 	for _, gauge := range e.Gauges.gauges {
 		gauge.Collect(ch)
 	}
