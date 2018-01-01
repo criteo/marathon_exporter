@@ -40,4 +40,7 @@ Usage of marathon_exporter:
         If set use a syslog logger or JSON logging. Example: logger:syslog?appname=bob&local=7 or logger:stdout?json=true. Defaults to stderr.
   -log.level value
         Only log messages with the given severity or above. Valid levels: [debug, info, warn, error, fatal]. (default info)
+
+Environmental Variables
+ - MARATHON_USERNAME and MARATHON_PASSWORD may be supplied for auth
 ```

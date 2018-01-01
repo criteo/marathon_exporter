@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/matt-deboer/go-marathon"
@@ -27,16 +28,26 @@ var (
 		"URI of Marathon")
 )
 
+func getUserPass(uri *url.URL) (string, string) {
+	if uri.User != nil {
+		if pass, ok := uri.User.Password(); ok {
+			return uri.User.Username(), pass
+		}
+		return "", ""
+	}
+	return os.Getenv("MARATHON_USERNAME"), os.Getenv("MARATHON_PASSWORD")
+}
+
 func marathonConnect(uri *url.URL) error {
 	config := marathon.NewDefaultConfig()
 	config.URL = uri.String()
 
-	if uri.User != nil {
-		if passwd, ok := uri.User.Password(); ok {
-			config.HTTPBasicPassword = passwd
-			config.HTTPBasicAuthUser = uri.User.Username()
-		}
+	user, pass := getUserPass(uri)
+	if user != "" && pass != "" {
+		config.HTTPBasicAuthUser = user
+		config.HTTPBasicPassword = pass
 	}
+
 	config.HTTPClient = &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
