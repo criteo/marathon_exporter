@@ -8,6 +8,7 @@ test:
 	go test -v -run=$(RUN) $(TEST)
 
 build: clean
+	go fmt ./...
 	go build -v -o bin/$(TARGET)
 
 release: clean

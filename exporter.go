@@ -15,14 +15,15 @@ import (
 const defaultNamespace = "marathon"
 
 type Exporter struct {
-	scraper      Scraper
-	duration     prometheus.Gauge
-	scrapeError  prometheus.Gauge
-	up           prometheus.Gauge
-	totalErrors  prometheus.Counter
-	totalScrapes prometheus.Counter
-	Counters     *CounterContainer
-	Gauges       *GaugeContainer
+	scraper         Scraper
+	duration        prometheus.Gauge
+	scrapeError     prometheus.Gauge
+	up              prometheus.Gauge
+	totalErrors     prometheus.Counter
+	totalScrapes    prometheus.Counter
+	Counters        *CounterContainer
+	Gauges          *GaugeContainer
+	containerLabels []string
 }
 
 // Describe implements prometheus.Collector.
@@ -158,12 +159,17 @@ func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric)
 			log.Debugf(fmt.Sprintf("Bad conversion! Unexpected value \"%v\" for number of app instances\n", data))
 			continue
 		}
+		labels, _ := app.Path("labels").ChildrenMap()
+		labelNames, labelValues := splitLabels(filterLabels(labels, e.containerLabels))
+
+		fmt.Printf("id=%v, labelNames=%v, labelValues=%v\n", id, labelNames, labelValues)
 
 		gauge.WithLabelValues(id, version).Set(count)
 
 		for key, value := range states {
 			name := fmt.Sprintf("app_task_%s", key)
-			gauge, new := e.Gauges.Fetch(name, fmt.Sprintf("Marathon app task %s count", key), "app", "app_version")
+			// TODO: cleanup append(..) after https://github.com/golang/go/issues/18605
+			gauge, new := e.Gauges.Fetch(name, fmt.Sprintf("Marathon app task %s count", key), append(labelNames, "app", "app_version")...)
 			if new {
 				log.Infof("Added gauge %q\n", name)
 			}
@@ -175,7 +181,7 @@ func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric)
 				continue
 			}
 
-			gauge.WithLabelValues(id, version).Set(count)
+			gauge.WithLabelValues(append(labelValues, id, version)...).Set(count)
 		}
 	}
 }
@@ -430,7 +436,7 @@ func (e *Exporter) scrapeTimer(key string, json *gabs.Container) (bool, error) {
 	return new, nil
 }
 
-func NewExporter(s Scraper, namespace string) *Exporter {
+func NewExporter(s Scraper, namespace string, labels []string) *Exporter {
 	return &Exporter{
 		scraper:  s,
 		Counters: NewCounterContainer(namespace),
@@ -464,5 +470,41 @@ func NewExporter(s Scraper, namespace string) *Exporter {
 			Name:      "errors_total",
 			Help:      "Total number of times the exporter experienced errors collecting Marathon metrics.",
 		}),
+		containerLabels: labels,
 	}
+}
+
+func filterLabels(appLabels map[string]*gabs.Container, captureableLabels []string) map[string]string {
+	out := make(map[string]string, 0)
+	for k, v := range appLabels {
+		for i := range captureableLabels {
+			if k == captureableLabels[i] {
+				s, ok := v.Data().(string)
+				if !ok {
+					s = ""
+				}
+				out[k] = s
+			}
+		}
+	}
+	// set empty label if it wasn't scraped, otherwise prometheus client panics
+	// from label name inconsistency
+	for i := range captureableLabels {
+		if _, exists := out[captureableLabels[i]]; !exists {
+			out[captureableLabels[i]] = ""
+		}
+	}
+	fmt.Printf("%v\n", out)
+	return out
+}
+
+// returns (labelNames, labelValues)
+func splitLabels(labels map[string]string) ([]string, []string) {
+	var names []string
+	var values []string
+	for k, v := range labels {
+		names = append(names, k)
+		values = append(values, v)
+	}
+	return names, values
 }
