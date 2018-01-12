@@ -162,8 +162,6 @@ func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric)
 		labels, _ := app.Path("labels").ChildrenMap()
 		labelNames, labelValues := splitLabels(filterLabels(labels, e.containerLabels))
 
-		fmt.Printf("id=%v, labelNames=%v, labelValues=%v\n", id, labelNames, labelValues)
-
 		gauge.WithLabelValues(id, version).Set(count)
 
 		for key, value := range states {
@@ -494,7 +492,6 @@ func filterLabels(appLabels map[string]*gabs.Container, captureableLabels []stri
 			out[captureableLabels[i]] = ""
 		}
 	}
-	fmt.Printf("%v\n", out)
 	return out
 }
 
@@ -503,8 +500,10 @@ func splitLabels(labels map[string]string) ([]string, []string) {
 	var names []string
 	var values []string
 	for k, v := range labels {
-		names = append(names, k)
-		values = append(values, v)
+		if k != "" {
+			names = append(names, k)
+			values = append(values, v)
+		}
 	}
 	return names, values
 }
