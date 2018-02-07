@@ -32,6 +32,8 @@ bin/marathon_exporter --help
 Usage of marathon_exporter:
   -marathon.uri string
         URI of Marathon (default "http://marathon.mesos:8080")
+  -app.labels string
+        Comma separated list of labels to scrape from each app
   -web.listen-address string
         Address to listen on for web interface and telemetry. (default ":9088")
   -web.telemetry-path string

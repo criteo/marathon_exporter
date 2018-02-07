@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/matt-deboer/go-marathon"
@@ -25,6 +26,10 @@ var (
 	marathonUri = flag.String(
 		"marathon.uri", "http://marathon.mesos:8080",
 		"URI of Marathon")
+
+	labelsToScrape = flag.String(
+		"app.labels", "",
+		"Labels to scrape from each app")
 )
 
 func marathonConnect(uri *url.URL) error {
@@ -83,7 +88,8 @@ func main() {
 		time.Sleep(retryTimeout)
 	}
 
-	exporter := NewExporter(&scraper{uri}, defaultNamespace)
+	labels := strings.Split(*labelsToScrape, ",")
+	exporter := NewExporter(&scraper{uri}, defaultNamespace, labels)
 	prometheus.MustRegister(exporter)
 
 	http.Handle(*metricsPath, prometheus.Handler())

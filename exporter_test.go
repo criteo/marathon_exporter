@@ -31,7 +31,7 @@ func (s *testScraper) Scrape(path string) ([]byte, error) {
 }
 
 func newTestExporter(namespace string) *testExporter {
-	exporter := NewExporter(&testScraper{`{}`}, namespace)
+	exporter := NewExporter(&testScraper{`{}`}, namespace, nil)
 
 	prometheus.MustRegister(exporter)
 	server := httptest.NewServer(prometheus.UninstrumentedHandler())
@@ -72,7 +72,7 @@ func getFunctionName() string {
 }
 
 func export(json string) ([]byte, error) {
-	exporter := NewExporter(&testScraper{json}, "marathon")
+	exporter := NewExporter(&testScraper{json}, "marathon", nil)
 	prometheus.MustRegister(exporter)
 	defer prometheus.Unregister(exporter)
 
@@ -372,4 +372,27 @@ func Test_export_timers(t *testing.T) {
 
 	assertResultsDoNotContain(t, results,
 		fName+"_bar_timer")
+}
+
+func TestExporter__sortLabels(t *testing.T) {
+	lbs := []label{
+		label{"z", "foo"},
+		label{"B", "foo2"},
+		label{"a", "foo3"},
+	}
+	sortLabels(lbs)
+
+	ans := []label{
+		label{"B", "foo2"},
+		label{"a", "foo3"},
+		label{"z", "foo"},
+	}
+	for i := range lbs {
+		if lbs[i].key != ans[i].key {
+			t.Errorf("idx=%d, lbs[i].key=%q ans[i].key=%q", i, lbs[i].key, ans[i].key)
+		}
+		if lbs[i].value != ans[i].value {
+			t.Errorf("idx=%d, lbs[i].value=%q ans[i].value=%q", i, lbs[i].value, ans[i].value)
+		}
+	}
 }
