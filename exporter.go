@@ -251,7 +251,7 @@ func (e *Exporter) scrapeGauges(json *gabs.Container) {
 }
 
 func (e *Exporter) scrapeGauge(key string, json *gabs.Container) (bool, error) {
-	data := json.Path("value").Data()
+	data := json.Path("max").Data()
 	value, ok := data.(float64)
 	if !ok {
 		return false, errors.New(fmt.Sprintf("Bad conversion! Unexpected value \"%v\" for gauge %s\n", data, key))
