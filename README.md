@@ -19,11 +19,11 @@ $ go get github.com/gettyimages/marathon_exporter
 $ docker pull gettyimages/marathon_exporter
 ```
 
-*\-or-*
+*\-or-* locally build image:
 
 ```
-make deps && make
-bin/marathon_exporter --help
+make image
+docker run -it marathon_exporter --help
 ```
 
 ## Using

@@ -8,13 +8,12 @@ test:
 	go test -v -run=$(RUN) $(TEST)
 
 build: clean
-	go build -v -o bin/$(TARGET)
-
-release: clean
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build \
 		-a -tags netgo \
 		-ldflags "-X main.Version=$(VERSION)" \
 		-o bin/$(TARGET) .
+
+release: build
 	docker build -t gettyimages/$(TARGET):$(VERSION) .
 
 publish: release
@@ -24,3 +23,9 @@ publish: release
 
 clean:
 	rm -rf bin/
+
+image:
+	docker build -t $(TARGET) .
+
+shell:
+	docker run -it --entrypoint /bin/ash $(TARGET)
