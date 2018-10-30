@@ -173,8 +173,8 @@ func Test_export_gauges(t *testing.T) {
 
 	results, err := te.export(`{
 		"gauges": {
-			"foo_value": {"value": 1},
-			"bar_value": {"value": 2}
+            "foo_value": {"min": 0, "max": 1},
+            "bar_value": {"min": 0, "max": 2}
 		}
 	}`)
 
@@ -188,8 +188,8 @@ func Test_export_gauges(t *testing.T) {
 
 	results, err = te.export(`{
 		"gauges": {
-			"foo_value": {"value": 1},
-			"baz_value": {"value": 3}
+            "foo_value": {"min": 0, "max": 1},
+            "baz_value": {"min": 0, "max": 3}
 		}
 	}`)
 

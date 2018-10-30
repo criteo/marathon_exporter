@@ -7,6 +7,8 @@ A [Prometheus](http://prometheus.io) metrics exporter for the [Marathon](https:/
 
 This exporter exposes Marathon's Codahale/Dropwizard metrics via its `/metrics` endpoint. To learn more, visit the [Marathon metrics doc](http://mesosphere.github.io/marathon/docs/metrics.html).
 
+Note: version v1.5.1+ of this exporter is not compatible with marathon 1.4.0 and below.
+
 ## Getting
 
 ```sh
