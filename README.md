@@ -1,9 +1,7 @@
 # Marathon Prometheus Exporter
+ 
 
-## Maintainers
-❕❕ We're looking for maintainers. See [issue #22](https://github.com/gettyimages/marathon_exporter/issues/22) for more info. ❕❕   
-
-[![Build Status](https://travis-ci.org/gettyimages/marathon_exporter.svg?branch=master)](https://travis-ci.org/gettyimages/marathon_exporter)
+[![Build Status](https://travis-ci.org/criteo/marathon_exporter.svg?branch=master)](https://travis-ci.org/criteo/marathon_exporter)
 [![Docker Pulls](https://img.shields.io/docker/pulls/gettyimages/marathon_exporter.svg)](https://hub.docker.com/r/gettyimages/marathon_exporter/)
 
 A [Prometheus](http://prometheus.io) metrics exporter for the [Marathon](https://mesosphere.github.io/marathon) Mesos framework.
@@ -15,7 +13,7 @@ Note: version v1.5.1+ of this exporter is not compatible with marathon 1.4.0 and
 ## Getting
 
 ```sh
-$ go get github.com/gettyimages/marathon_exporter
+$ go get github.com/criteo/marathon_exporter
 ```
 
 *\-or-*
