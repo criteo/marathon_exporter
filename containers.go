@@ -19,15 +19,17 @@ const (
 )
 
 type CounterContainer struct {
-	counters  map[string]*prometheus.CounterVec
-	namespace string
-	mutex     sync.Mutex
+	counters    map[string]*prometheus.CounterVec
+	namespace   string
+	mutex       sync.Mutex
+	constLabels prometheus.Labels
 }
 
-func NewCounterContainer(namespace string) *CounterContainer {
+func NewCounterContainer(namespace string, constLabels prometheus.Labels) *CounterContainer {
 	return &CounterContainer{
-		counters:  make(map[string]*prometheus.CounterVec),
-		namespace: namespace,
+		counters:    make(map[string]*prometheus.CounterVec),
+		namespace:   namespace,
+		constLabels: constLabels,
 	}
 }
 
@@ -39,9 +41,10 @@ func (c *CounterContainer) Fetch(name, help string, labels ...string) (*promethe
 
 	if !exists {
 		counter = prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: c.namespace,
-			Name:      name,
-			Help:      help,
+			Namespace:   c.namespace,
+			Name:        name,
+			Help:        help,
+			ConstLabels: c.constLabels,
 		}, labels)
 
 		c.counters[key] = counter
@@ -54,12 +57,14 @@ type GaugeContainer struct {
 	gauges    map[string]*prometheus.GaugeVec
 	namespace string
 	mutex     sync.Mutex
+	constLabels prometheus.Labels
 }
 
-func NewGaugeContainer(namespace string) *GaugeContainer {
+func NewGaugeContainer(namespace string, constLabels prometheus.Labels) *GaugeContainer {
 	return &GaugeContainer{
 		gauges:    make(map[string]*prometheus.GaugeVec),
 		namespace: namespace,
+		constLabels: constLabels,
 	}
 }
 
@@ -71,9 +76,10 @@ func (c *GaugeContainer) Fetch(name, help string, labels ...string) (*prometheus
 
 	if !exists {
 		gauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: c.namespace,
-			Name:      name,
-			Help:      help,
+			Namespace:   c.namespace,
+			Name:        name,
+			Help:        help,
+			ConstLabels: c.constLabels,
 		}, labels)
 
 		c.gauges[key] = gauge

@@ -13,9 +13,11 @@ import (
 )
 
 const defaultNamespace = "marathon"
+const marathonInstanceLabelName = "marathon_instance"
 
-type Exporter struct {
+type SingleExporter struct {
 	scraper      Scraper
+	instanceId   string
 	duration     prometheus.Gauge
 	scrapeError  prometheus.Gauge
 	up           prometheus.Gauge
@@ -23,6 +25,10 @@ type Exporter struct {
 	totalScrapes prometheus.Counter
 	Counters     *CounterContainer
 	Gauges       *GaugeContainer
+}
+
+type Exporter struct {
+	exporters    []*SingleExporter
 }
 
 // Describe implements prometheus.Collector.
@@ -46,16 +52,24 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements prometheus.Collector.
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	log.Debugln("Collecting metrics")
-	e.scrape(ch)
+	for _, exporter := range e.exporters {
+		exporter.scrape(ch)
 
-	ch <- e.duration
-	ch <- e.totalScrapes
-	ch <- e.totalErrors
-	ch <- e.scrapeError
-	ch <- e.up
+		ch <- exporter.duration
+		ch <- exporter.totalScrapes
+		ch <- exporter.totalErrors
+		ch <- exporter.scrapeError
+		ch <- exporter.up
+	}
 }
 
-func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
+func NewInstanceIdLabels(instanceId string) prometheus.Labels {
+	return prometheus.Labels{
+		marathonInstanceLabelName: instanceId,
+	}
+}
+
+func (e *SingleExporter) scrape(ch chan<- prometheus.Metric) {
 	e.totalScrapes.Inc()
 
 	var err error
@@ -72,8 +86,8 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 	}(time.Now())
 
 	// Rebuild gauges & coutners to avoid stale values
-	e.Gauges = NewGaugeContainer(e.Gauges.namespace)
-	e.Counters = NewCounterContainer(e.Counters.namespace)
+	e.Gauges = NewGaugeContainer(e.Gauges.namespace, NewInstanceIdLabels(e.instanceId))
+	e.Counters = NewCounterContainer(e.Counters.namespace, NewInstanceIdLabels(e.instanceId))
 	if err = e.exportApps(ch); err != nil {
 		return
 	}
@@ -94,7 +108,7 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 	}
 }
 
-func (e *Exporter) exportApps(ch chan<- prometheus.Metric) (err error) {
+func (e *SingleExporter) exportApps(ch chan<- prometheus.Metric) (err error) {
 	content, err := e.scraper.Scrape("v2/apps?embed=apps.taskStats")
 	if err != nil {
 		log.Debugf("Problem scraping v2/apps endpoint: %v\n", err)
@@ -111,7 +125,7 @@ func (e *Exporter) exportApps(ch chan<- prometheus.Metric) (err error) {
 	return
 }
 
-func (e *Exporter) exportMetrics(ch chan<- prometheus.Metric) (err error) {
+func (e *SingleExporter) exportMetrics(ch chan<- prometheus.Metric) (err error) {
 	content, err := e.scraper.Scrape("metrics")
 	if err != nil {
 		log.Debugf("Problem scraping metrics endpoint: %v\n", err)
@@ -128,7 +142,7 @@ func (e *Exporter) exportMetrics(ch chan<- prometheus.Metric) (err error) {
 	return
 }
 
-func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric) {
+func (e *SingleExporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric) {
 	elements, _ := json.S("apps").Children()
 	states := map[string]string{
 		"running":    "tasksRunning",
@@ -180,7 +194,7 @@ func (e *Exporter) scrapeApps(json *gabs.Container, ch chan<- prometheus.Metric)
 	}
 }
 
-func (e *Exporter) scrapeMetrics(json *gabs.Container, ch chan<- prometheus.Metric) {
+func (e *SingleExporter) scrapeMetrics(json *gabs.Container, ch chan<- prometheus.Metric) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
 		switch key {
@@ -212,7 +226,7 @@ func (e *Exporter) scrapeMetrics(json *gabs.Container, ch chan<- prometheus.Metr
 	}
 }
 
-func (e *Exporter) scrapeCounters(json *gabs.Container) {
+func (e *SingleExporter) scrapeCounters(json *gabs.Container) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
 		new, err := e.scrapeCounter(key, element)
@@ -224,7 +238,7 @@ func (e *Exporter) scrapeCounters(json *gabs.Container) {
 	}
 }
 
-func (e *Exporter) scrapeCounter(key string, json *gabs.Container) (bool, error) {
+func (e *SingleExporter) scrapeCounter(key string, json *gabs.Container) (bool, error) {
 	data := json.Path("count").Data()
 	count, ok := data.(float64)
 	if !ok {
@@ -238,7 +252,7 @@ func (e *Exporter) scrapeCounter(key string, json *gabs.Container) (bool, error)
 	return new, nil
 }
 
-func (e *Exporter) scrapeGauges(json *gabs.Container) {
+func (e *SingleExporter) scrapeGauges(json *gabs.Container) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
 		new, err := e.scrapeGauge(key, element)
@@ -250,7 +264,7 @@ func (e *Exporter) scrapeGauges(json *gabs.Container) {
 	}
 }
 
-func (e *Exporter) scrapeGauge(key string, json *gabs.Container) (bool, error) {
+func (e *SingleExporter) scrapeGauge(key string, json *gabs.Container) (bool, error) {
 	data := json.Path("max").Data()
 	value, ok := data.(float64)
 	if !ok {
@@ -264,7 +278,7 @@ func (e *Exporter) scrapeGauge(key string, json *gabs.Container) (bool, error) {
 	return new, nil
 }
 
-func (e *Exporter) scrapeMeters(json *gabs.Container) {
+func (e *SingleExporter) scrapeMeters(json *gabs.Container) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
 		new, err := e.scrapeMeter(key, element)
@@ -276,7 +290,7 @@ func (e *Exporter) scrapeMeters(json *gabs.Container) {
 	}
 }
 
-func (e *Exporter) scrapeMeter(key string, json *gabs.Container) (bool, error) {
+func (e *SingleExporter) scrapeMeter(key string, json *gabs.Container) (bool, error) {
 	count, ok := json.Path("count").Data().(float64)
 	if !ok {
 		return false, errors.New(fmt.Sprintf("Bad meter! %s has no count\n", key))
@@ -304,7 +318,7 @@ func (e *Exporter) scrapeMeter(key string, json *gabs.Container) (bool, error) {
 	return new, nil
 }
 
-func (e *Exporter) scrapeHistograms(json *gabs.Container) {
+func (e *SingleExporter) scrapeHistograms(json *gabs.Container) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
 		new, err := e.scrapeHistogram(key, element)
@@ -316,7 +330,7 @@ func (e *Exporter) scrapeHistograms(json *gabs.Container) {
 	}
 }
 
-func (e *Exporter) scrapeHistogram(key string, json *gabs.Container) (bool, error) {
+func (e *SingleExporter) scrapeHistogram(key string, json *gabs.Container) (bool, error) {
 	count, ok := json.Path("count").Data().(float64)
 	if !ok {
 		return false, errors.New(fmt.Sprintf("Bad historgram! %s has no count\n", key))
@@ -362,7 +376,7 @@ func (e *Exporter) scrapeHistogram(key string, json *gabs.Container) (bool, erro
 	return new, nil
 }
 
-func (e *Exporter) scrapeTimers(json *gabs.Container) {
+func (e *SingleExporter) scrapeTimers(json *gabs.Container) {
 	elements, _ := json.ChildrenMap()
 	for key, element := range elements {
 		new, err := e.scrapeTimer(key, element)
@@ -374,7 +388,7 @@ func (e *Exporter) scrapeTimers(json *gabs.Container) {
 	}
 }
 
-func (e *Exporter) scrapeTimer(key string, json *gabs.Container) (bool, error) {
+func (e *SingleExporter) scrapeTimer(key string, json *gabs.Container) (bool, error) {
 	count, ok := json.Path("count").Data().(float64)
 	if !ok {
 		return false, errors.New(fmt.Sprintf("Bad timer! %s has no count\n", key))
@@ -430,39 +444,46 @@ func (e *Exporter) scrapeTimer(key string, json *gabs.Container) (bool, error) {
 	return new, nil
 }
 
-func NewExporter(s Scraper, namespace string) *Exporter {
-	return &Exporter{
+func NewSingleExporter(s Scraper, instanceId string, namespace string) *SingleExporter {
+	constLabels := NewInstanceIdLabels(instanceId)
+	return &SingleExporter{
 		scraper:  s,
-		Counters: NewCounterContainer(namespace),
-		Gauges:   NewGaugeContainer(namespace),
+		instanceId: instanceId,
+		Counters: NewCounterContainer(namespace, constLabels),
+		Gauges:   NewGaugeContainer(namespace, constLabels),
 		duration: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: "exporter",
 			Name:      "last_scrape_duration_seconds",
 			Help:      "Duration of the last scrape of metrics from Marathon.",
+			ConstLabels: constLabels,
 		}),
 		up: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      "up",
 			Help:      "Whether the last scrape of metrics from Marathon resulted in an error (0 for error, 1 for success).",
+			ConstLabels: constLabels,
 		}),
 		scrapeError: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: "exporter",
 			Name:      "last_scrape_error",
 			Help:      "Whether the last scrape of metrics from Marathon resulted in an error (1 for error, 0 for success).",
+			ConstLabels: constLabels,
 		}),
 		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: "exporter",
 			Name:      "scrapes_total",
 			Help:      "Total number of times Marathon was scraped for metrics.",
+			ConstLabels: constLabels,
 		}),
 		totalErrors: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: "exporter",
 			Name:      "errors_total",
 			Help:      "Total number of times the exporter experienced errors collecting Marathon metrics.",
+			ConstLabels: constLabels,
 		}),
 	}
 }

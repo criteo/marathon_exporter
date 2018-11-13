@@ -31,7 +31,27 @@ func (s *testScraper) Scrape(path string) ([]byte, error) {
 }
 
 func newTestExporter(namespace string) *testExporter {
-	exporter := NewExporter(&testScraper{`{}`}, namespace)
+	singleExporter := NewSingleExporter(&testScraper{`{}`}, "instance_1", namespace)
+
+	exporter := &Exporter{
+		exporters: []*SingleExporter{singleExporter},
+	}
+
+	prometheus.MustRegister(exporter)
+	server := httptest.NewServer(prometheus.UninstrumentedHandler())
+	return &testExporter{
+		exporter: exporter,
+		server:   server,
+	}
+}
+
+func newTestExporterMultipleInstances(namespace string) *testExporter {
+	singleExporter1 := NewSingleExporter(&testScraper{`{}`}, "instance_1", namespace)
+	singleExporter2 := NewSingleExporter(&testScraper{`{}`}, "instance_2", namespace)
+
+	exporter := &Exporter{
+		exporters: []*SingleExporter{singleExporter1, singleExporter2},
+	}
 
 	prometheus.MustRegister(exporter)
 	server := httptest.NewServer(prometheus.UninstrumentedHandler())
@@ -46,9 +66,9 @@ func (te *testExporter) close() {
 	te.server.Close()
 }
 
-func (te *testExporter) export(json string) ([]byte, error) {
+func (te *testExporter) export(i int, json string) ([]byte, error) {
 
-	te.exporter.scraper = &testScraper{json}
+	te.exporter.exporters[i].scraper = &testScraper{json}
 	response, err := http.Get(te.server.URL)
 	if err != nil {
 		return nil, err
@@ -72,7 +92,10 @@ func getFunctionName() string {
 }
 
 func export(json string) ([]byte, error) {
-	exporter := NewExporter(&testScraper{json}, "marathon")
+	singleExporter := NewSingleExporter(&testScraper{json}, "instance_0", "marathon")
+	exporter := &Exporter{
+		exporters: []*SingleExporter{singleExporter},
+	}
 	prometheus.MustRegister(exporter)
 	defer prometheus.Unregister(exporter)
 
@@ -102,7 +125,7 @@ func Test_export_version(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if line := `marathon_metrics_version{version="3.0.0"} 1`; !strings.Contains(string(results), line) {
+	if line := `marathon_metrics_version{marathon_instance="instance_0",version="3.0.0"} 1`; !strings.Contains(string(results), line) {
 		t.Errorf("No metric matching: %s\n", line)
 	}
 }
@@ -132,7 +155,7 @@ func Test_export_counters(t *testing.T) {
 	defer te.close()
 
 	// First pass
-	results, err := te.export(`{
+	results, err := te.export(0, `{
 		"counters": {
 			"foo_count": {"count": 1},
 			"bar_count": {"count": 2}
@@ -143,11 +166,11 @@ func Test_export_counters(t *testing.T) {
 	}
 
 	assertResultsContain(t, results,
-		fName+"_foo_count 1",
-		fName+"_bar_count 2")
+		fName+`_foo_count{marathon_instance="instance_1"} 1`,
+		fName+`_bar_count{marathon_instance="instance_1"} 2`)
 
 	// Second pass; 'bar' metric no longer present
-	results, err = te.export(`{
+	results, err = te.export(0, `{
 		"counters": {
 			"foo_count": {"count": 1},
 			"baz_count": {"count": 3}
@@ -158,8 +181,8 @@ func Test_export_counters(t *testing.T) {
 	}
 
 	assertResultsContain(t, results,
-		fName+"_foo_count 1",
-		fName+"_baz_count 3")
+		fName+`_foo_count{marathon_instance="instance_1"} 1`,
+		fName+`_baz_count{marathon_instance="instance_1"} 3`)
 
 	assertResultsDoNotContain(t, results,
 		fName+"_bar_count 2")
@@ -171,7 +194,7 @@ func Test_export_gauges(t *testing.T) {
 	te := newTestExporter(fName)
 	defer te.close()
 
-	results, err := te.export(`{
+	results, err := te.export(0, `{
 		"gauges": {
             "foo_value": {"min": 0, "max": 1},
             "bar_value": {"min": 0, "max": 2}
@@ -183,10 +206,10 @@ func Test_export_gauges(t *testing.T) {
 	}
 
 	assertResultsContain(t, results,
-		fName+"_foo_value 1",
-		fName+"_bar_value 2")
+		fName+`_foo_value{marathon_instance="instance_1"} 1`,
+		fName+`_bar_value{marathon_instance="instance_1"} 2`)
 
-	results, err = te.export(`{
+	results, err = te.export(0, `{
 		"gauges": {
             "foo_value": {"min": 0, "max": 1},
             "baz_value": {"min": 0, "max": 3}
@@ -198,11 +221,47 @@ func Test_export_gauges(t *testing.T) {
 	}
 
 	assertResultsContain(t, results,
-		fName+"_foo_value 1",
-		fName+"_baz_value 3")
+		fName+`_foo_value{marathon_instance="instance_1"} 1`,
+		fName+`_baz_value{marathon_instance="instance_1"} 3`)
 
 	assertResultsDoNotContain(t, results,
 		fName+"_bar_value 2")
+}
+
+func Test_export_of_multiple_instances(t *testing.T) {
+	fName := getFunctionName()
+	te := newTestExporterMultipleInstances(fName)
+	defer te.close()
+
+	results, err := te.export(0, `{
+		"gauges": {
+            "foo_value": {"min": 0, "max": 1},
+            "bar_value": {"min": 0, "max": 2}
+		}
+	}`)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertResultsContain(t, results,
+		fName+`_foo_value{marathon_instance="instance_1"} 1`,
+		fName+`_bar_value{marathon_instance="instance_1"} 2`)
+
+	results, err = te.export(1, `{
+		"gauges": {
+            "foo_value": {"min": 3, "max": 4},
+            "bar_value": {"min": 3, "max": 5}
+		}
+	}`)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertResultsContain(t, results,
+		fName+`_foo_value{marathon_instance="instance_2"} 4`,
+		fName+`_bar_value{marathon_instance="instance_2"} 5`)
 }
 
 func Test_export_meters(t *testing.T) {
@@ -211,7 +270,7 @@ func Test_export_meters(t *testing.T) {
 	te := newTestExporter(fName)
 	defer te.close()
 
-	results, err := te.export(`{
+	results, err := te.export(0, `{
 		"meters": {
 			"foo_meter": {"count":1,"m1_rate":1,"m5_rate":1,"m15_rate":1,"mean_rate":1,"units":"foos/bar"},
 			"bar_meter": {"count":2,"m1_rate":2,"m5_rate":2,"m15_rate":2,"mean_rate":2,"units":"foos/bar"}
@@ -223,12 +282,12 @@ func Test_export_meters(t *testing.T) {
 	}
 
 	assertResultsContain(t, results,
-		fName+"_foo_meter_count 1",
-		fName+"_foo_meter{rate=\"(1m|5m|15m|mean)\"} 1",
-		fName+"_bar_meter_count 2",
-		fName+"_bar_meter{rate=\"(1m|5m|15m|mean)\"} 2")
+		fName+"_foo_meter_count{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_meter{marathon_instance=\"instance_1\",rate=\"(1m|5m|15m|mean)\"} 1",
+		fName+"_bar_meter_count{marathon_instance=\"instance_1\"} 2",
+		fName+"_bar_meter{marathon_instance=\"instance_1\",rate=\"(1m|5m|15m|mean)\"} 2")
 
-	results, err = te.export(`{
+	results, err = te.export(0, `{
 		"meters": {
 			"foo_meter": {"count":1,"m1_rate":1,"m5_rate":1,"m15_rate":1,"mean_rate":1,"units":"foos/bar"},
 			"baz_meter": {"count":2,"m1_rate":2,"m5_rate":2,"m15_rate":2,"mean_rate":2,"units":"foos/bar"}
@@ -240,10 +299,10 @@ func Test_export_meters(t *testing.T) {
 	}
 
 	assertResultsContain(t, results,
-		fName+"_foo_meter_count 1",
-		fName+"_foo_meter{rate=\"(1m|5m|15m|mean)\"} 1",
-		fName+"_baz_meter_count 2",
-		fName+"_baz_meter{rate=\"(1m|5m|15m|mean)\"} 2")
+		fName+"_foo_meter_count{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_meter{marathon_instance=\"instance_1\",rate=\"(1m|5m|15m|mean)\"} 1",
+		fName+"_baz_meter_count{marathon_instance=\"instance_1\"} 2",
+		fName+"_baz_meter{marathon_instance=\"instance_1\",rate=\"(1m|5m|15m|mean)\"} 2")
 
 	assertResultsDoNotContain(t, results,
 		fName+"_bar_meter")
@@ -255,7 +314,7 @@ func Test_export_histograms(t *testing.T) {
 	te := newTestExporter(fName)
 	defer te.close()
 
-	results, err := te.export(`{
+	results, err := te.export(0, `{
 		"histograms": {
 			"foo_histogram": {"count":1,"p50":1,"p75":1,"p95":1,"p98":1,"p99":1,"p999":1,"max":1,"mean":1,"min":1,"stddev":1},
 			"bar_histogram": {"count":2,"p50":2,"p75":2,"p95":2,"p98":2,"p99":2,"p999":2,"max":2,"mean":2,"min":2,"stddev":2}
@@ -267,20 +326,20 @@ func Test_export_histograms(t *testing.T) {
 	}
 
 	assertResultsContain(t, results,
-		fName+"_foo_histogram_count 1",
-		fName+"_foo_histogram_max 1",
-		fName+"_foo_histogram_min 1",
-		fName+"_foo_histogram_mean 1",
-		fName+"_foo_histogram_stddev 1",
-		fName+"_foo_histogram{percentile=\"0\\.\\d+\"} 1",
-		fName+"_bar_histogram_count 2",
-		fName+"_bar_histogram_max 2",
-		fName+"_bar_histogram_min 2",
-		fName+"_bar_histogram_mean 2",
-		fName+"_bar_histogram_stddev 2",
-		fName+"_bar_histogram{percentile=\"0\\.\\d+\"} 2")
+		fName+"_foo_histogram_count{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_histogram_max{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_histogram_min{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_histogram_mean{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_histogram_stddev{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_histogram{marathon_instance=\"instance_1\",percentile=\"0\\.\\d+\"} 1",
+		fName+"_bar_histogram_count{marathon_instance=\"instance_1\"} 2",
+		fName+"_bar_histogram_max{marathon_instance=\"instance_1\"} 2",
+		fName+"_bar_histogram_min{marathon_instance=\"instance_1\"} 2",
+		fName+"_bar_histogram_mean{marathon_instance=\"instance_1\"} 2",
+		fName+"_bar_histogram_stddev{marathon_instance=\"instance_1\"} 2",
+		fName+"_bar_histogram{marathon_instance=\"instance_1\",percentile=\"0\\.\\d+\"} 2")
 
-	results, err = te.export(`{
+	results, err = te.export(0, `{
 		"histograms": {
 			"foo_histogram": {"count":1,"p50":1,"p75":1,"p95":1,"p98":1,"p99":1,"p999":1,"max":1,"mean":1,"min":1,"stddev":1},
 			"baz_histogram": {"count":2,"p50":2,"p75":2,"p95":2,"p98":2,"p99":2,"p999":2,"max":2,"mean":2,"min":2,"stddev":2}
@@ -292,18 +351,18 @@ func Test_export_histograms(t *testing.T) {
 	}
 
 	assertResultsContain(t, results,
-		fName+"_foo_histogram_count 1",
-		fName+"_foo_histogram_max 1",
-		fName+"_foo_histogram_min 1",
-		fName+"_foo_histogram_mean 1",
-		fName+"_foo_histogram_stddev 1",
-		fName+"_foo_histogram{percentile=\"0\\.\\d+\"} 1",
-		fName+"_baz_histogram_count 2",
-		fName+"_baz_histogram_max 2",
-		fName+"_baz_histogram_min 2",
-		fName+"_baz_histogram_mean 2",
-		fName+"_baz_histogram_stddev 2",
-		fName+"_baz_histogram{percentile=\"0\\.\\d+\"} 2")
+		fName+"_foo_histogram_count{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_histogram_max{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_histogram_min{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_histogram_mean{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_histogram_stddev{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_histogram{marathon_instance=\"instance_1\",percentile=\"0\\.\\d+\"} 1",
+		fName+"_baz_histogram_count{marathon_instance=\"instance_1\"} 2",
+		fName+"_baz_histogram_max{marathon_instance=\"instance_1\"} 2",
+		fName+"_baz_histogram_min{marathon_instance=\"instance_1\"} 2",
+		fName+"_baz_histogram_mean{marathon_instance=\"instance_1\"} 2",
+		fName+"_baz_histogram_stddev{marathon_instance=\"instance_1\"} 2",
+		fName+"_baz_histogram{marathon_instance=\"instance_1\",percentile=\"0\\.\\d+\"} 2")
 
 	assertResultsDoNotContain(t, results,
 		fName+"_bar_histogram")
@@ -316,7 +375,7 @@ func Test_export_timers(t *testing.T) {
 	te := newTestExporter(fName)
 	defer te.close()
 
-	results, err := te.export(`{
+	results, err := te.export(0, `{
 		"timers": {
 			"foo_timer": {"count":1,"p50":1,"p75":1,"p95":1,"p98":1,"p99":1,"p999":1,"max":1,"mean":1,"min":1,"stddev":1,"m1_rate":1,"m5_rate":1,"m15_rate":1,"mean_rate":1,"duration_units":"foos","rate_units":"bars/foo"},
 			"bar_timer": {"count":2,"p50":2,"p75":2,"p95":2,"p98":2,"p99":2,"p999":2,"max":2,"mean":2,"min":2,"stddev":2,"m1_rate":2,"m5_rate":2,"m15_rate":2,"mean_rate":2,"duration_units":"bars","rate_units":"foos/bar"}
@@ -328,22 +387,22 @@ func Test_export_timers(t *testing.T) {
 	}
 
 	assertResultsContain(t, results,
-		fName+"_foo_timer_count 1",
-		fName+"_foo_timer_max 1",
-		fName+"_foo_timer_min 1",
-		fName+"_foo_timer_mean 1",
-		fName+"_foo_timer_stddev 1",
-		fName+"_foo_timer{percentile=\"0\\.\\d+\"} 1",
-		fName+"_foo_timer_rate{rate=\"(1m|5m|15m|mean)\"} 1",
-		fName+"_bar_timer_count 2",
-		fName+"_bar_timer_max 2",
-		fName+"_bar_timer_min 2",
-		fName+"_bar_timer_mean 2",
-		fName+"_bar_timer_stddev 2",
-		fName+"_bar_timer{percentile=\"0\\.\\d+\"} 2",
-		fName+"_bar_timer_rate{rate=\"(1m|5m|15m|mean)\"} 2")
+		fName+"_foo_timer_count{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_timer_max{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_timer_min{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_timer_mean{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_timer_stddev{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_timer{marathon_instance=\"instance_1\",percentile=\"0\\.\\d+\"} 1",
+		fName+"_foo_timer_rate{marathon_instance=\"instance_1\",rate=\"(1m|5m|15m|mean)\"} 1",
+		fName+"_bar_timer_count{marathon_instance=\"instance_1\"} 2",
+		fName+"_bar_timer_max{marathon_instance=\"instance_1\"} 2",
+		fName+"_bar_timer_min{marathon_instance=\"instance_1\"} 2",
+		fName+"_bar_timer_mean{marathon_instance=\"instance_1\"} 2",
+		fName+"_bar_timer_stddev{marathon_instance=\"instance_1\"} 2",
+		fName+"_bar_timer{marathon_instance=\"instance_1\",percentile=\"0\\.\\d+\"} 2",
+		fName+"_bar_timer_rate{marathon_instance=\"instance_1\",rate=\"(1m|5m|15m|mean)\"} 2")
 
-	results, err = te.export(`{
+	results, err = te.export(0, `{
 		"timers": {
 			"foo_timer": {"count":1,"p50":1,"p75":1,"p95":1,"p98":1,"p99":1,"p999":1,"max":1,"mean":1,"min":1,"stddev":1,"m1_rate":1,"m5_rate":1,"m15_rate":1,"mean_rate":1,"duration_units":"foos","rate_units":"bars/foo"},
 			"baz_timer": {"count":2,"p50":2,"p75":2,"p95":2,"p98":2,"p99":2,"p999":2,"max":2,"mean":2,"min":2,"stddev":2,"m1_rate":2,"m5_rate":2,"m15_rate":2,"mean_rate":2,"duration_units":"bars","rate_units":"foos/bar"}
@@ -355,20 +414,20 @@ func Test_export_timers(t *testing.T) {
 	}
 
 	assertResultsContain(t, results,
-		fName+"_foo_timer_count 1",
-		fName+"_foo_timer_max 1",
-		fName+"_foo_timer_min 1",
-		fName+"_foo_timer_mean 1",
-		fName+"_foo_timer_stddev 1",
-		fName+"_foo_timer{percentile=\"0\\.\\d+\"} 1",
-		fName+"_foo_timer_rate{rate=\"(1m|5m|15m|mean)\"} 1",
-		fName+"_baz_timer_count 2",
-		fName+"_baz_timer_max 2",
-		fName+"_baz_timer_min 2",
-		fName+"_baz_timer_mean 2",
-		fName+"_baz_timer_stddev 2",
-		fName+"_baz_timer{percentile=\"0\\.\\d+\"} 2",
-		fName+"_baz_timer_rate{rate=\"(1m|5m|15m|mean)\"} 2")
+		fName+"_foo_timer_count{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_timer_max{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_timer_min{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_timer_mean{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_timer_stddev{marathon_instance=\"instance_1\"} 1",
+		fName+"_foo_timer{marathon_instance=\"instance_1\",percentile=\"0\\.\\d+\"} 1",
+		fName+"_foo_timer_rate{marathon_instance=\"instance_1\",rate=\"(1m|5m|15m|mean)\"} 1",
+		fName+"_baz_timer_count{marathon_instance=\"instance_1\"} 2",
+		fName+"_baz_timer_max{marathon_instance=\"instance_1\"} 2",
+		fName+"_baz_timer_min{marathon_instance=\"instance_1\"} 2",
+		fName+"_baz_timer_mean{marathon_instance=\"instance_1\"} 2",
+		fName+"_baz_timer_stddev{marathon_instance=\"instance_1\"} 2",
+		fName+"_baz_timer{marathon_instance=\"instance_1\",percentile=\"0\\.\\d+\"} 2",
+		fName+"_baz_timer_rate{marathon_instance=\"instance_1\",rate=\"(1m|5m|15m|mean)\"} 2")
 
 	assertResultsDoNotContain(t, results,
 		fName+"_bar_timer")

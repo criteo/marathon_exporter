@@ -1,6 +1,16 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
+
+var (
+	globalLabels = prometheus.Labels{
+		"marathon_instance": "test",
+	}
+)
 
 func Test_container_key(t *testing.T) {
 	cases := []struct {
@@ -32,7 +42,7 @@ func Test_container_key(t *testing.T) {
 }
 
 func Test_container_fetch_counter(t *testing.T) {
-	container := NewCounterContainer("marathon")
+	container := NewCounterContainer("marathon", globalLabels)
 	_, new := container.Fetch("foo", "")
 
 	if !new {
@@ -52,7 +62,7 @@ func Test_container_fetch_counter(t *testing.T) {
 }
 
 func Test_container_fetch_gauge(t *testing.T) {
-	container := NewGaugeContainer("marathon")
+	container := NewGaugeContainer("marathon", globalLabels)
 	_, new := container.Fetch("foo", "")
 
 	if !new {

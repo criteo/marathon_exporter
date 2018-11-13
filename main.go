@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -13,6 +14,19 @@ import (
 	"github.com/prometheus/common/log"
 )
 
+type MarathonUris []string
+
+func (i *MarathonUris) Set(value string) error {
+    *i = append(*i, value)
+    return nil
+}
+
+func (i *MarathonUris) String() string {
+	return "Marathon URIs to scrape"
+}
+
+var marathonUris MarathonUris
+
 var (
 	listenAddress = flag.String(
 		"web.listen-address", ":9088",
@@ -21,10 +35,6 @@ var (
 	metricsPath = flag.String(
 		"web.telemetry-path", "/metrics",
 		"Path under which to expose metrics.")
-
-	marathonUri = flag.String(
-		"marathon.uri", "http://marathon.mesos:8080",
-		"URI of Marathon")
 )
 
 func marathonConnect(uri *url.URL) error {
@@ -64,13 +74,7 @@ func marathonConnect(uri *url.URL) error {
 	return nil
 }
 
-func main() {
-	flag.Parse()
-	uri, err := url.Parse(*marathonUri)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func CheckMarathonConnection(uri *url.URL) {
 	retryTimeout := time.Duration(10 * time.Second)
 	for {
 		err := marathonConnect(uri)
@@ -82,8 +86,31 @@ func main() {
 		log.Infof("Couldn't connect to Marathon! Trying again in %v", retryTimeout)
 		time.Sleep(retryTimeout)
 	}
+}
 
-	exporter := NewExporter(&scraper{uri}, defaultNamespace)
+func InstanceId(url *url.URL) string {
+	if url.Port() == "" {
+		return url.Hostname()
+	}
+	return fmt.Sprintf("%s:%s", url.Hostname(), url.Port())
+}
+
+func main() {
+	flag.Var(&marathonUris, "marathon.uri", "URI of Marathon")
+	flag.Parse()
+
+	exporter := &Exporter{}
+
+	for _, marathonUri := range marathonUris {
+		uri, err := url.Parse(marathonUri)
+		if err != nil {
+			log.Fatal(err)
+		}
+		CheckMarathonConnection(uri)
+		singleExporter := NewSingleExporter(&scraper{uri}, InstanceId(uri), defaultNamespace)
+		exporter.exporters = append(exporter.exporters, singleExporter)
+	}
+
 	prometheus.MustRegister(exporter)
 
 	http.Handle(*metricsPath, prometheus.Handler())
