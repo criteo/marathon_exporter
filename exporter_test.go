@@ -174,6 +174,7 @@ func Test_export_gauges(t *testing.T) {
 	results, err := te.export(`{
 		"gauges": {
             "foo_value": {"min": 0, "max": 1},
+            "qux_value": {"value": 4},
             "bar_value": {"min": 0, "max": 2}
 		}
 	}`)
@@ -184,6 +185,7 @@ func Test_export_gauges(t *testing.T) {
 
 	assertResultsContain(t, results,
 		fName+"_foo_value 1",
+		fName+"_qux_value 4",
 		fName+"_bar_value 2")
 
 	results, err = te.export(`{
@@ -203,6 +205,7 @@ func Test_export_gauges(t *testing.T) {
 
 	assertResultsDoNotContain(t, results,
 		fName+"_bar_value 2")
+
 }
 
 func Test_export_meters(t *testing.T) {

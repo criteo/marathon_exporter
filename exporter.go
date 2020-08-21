@@ -251,10 +251,13 @@ func (e *Exporter) scrapeGauges(json *gabs.Container) {
 }
 
 func (e *Exporter) scrapeGauge(key string, json *gabs.Container) (bool, error) {
-	data := json.Path("max").Data()
-	value, ok := data.(float64)
+	value, ok := json.Path("value").Data().(float64)
 	if !ok {
-		return false, errors.New(fmt.Sprintf("Bad conversion! Unexpected value \"%v\" for gauge %s\n", data, key))
+		// Let's try to scrap old min,max metric
+		value, ok = json.Path("max").Data().(float64)
+		if !ok {
+			return false, errors.New(fmt.Sprintf("Bad conversion! Unexpected value for 'value' or 'max' in gauge %s\n", key))
+		}
 	}
 
 	name := renameMetric(key)
