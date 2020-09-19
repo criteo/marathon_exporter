@@ -25,18 +25,18 @@ var (
 	marathonUri = flag.String(
 		"marathon.uri", "http://marathon.mesos:8080",
 		"URI of Marathon")
+	marathonUserName = flag.String(
+		"marathon.username", "", "marathon username")
+	marathonPassword = flag.String(
+		"marathon.password", "", "marathon password")
 )
 
-func marathonConnect(uri *url.URL) error {
+func marathonConnect() error {
 	config := marathon.NewDefaultConfig()
-	config.URL = uri.String()
+	config.URL = *marathonUri
 
-	if uri.User != nil {
-		if passwd, ok := uri.User.Password(); ok {
-			config.HTTPBasicPassword = passwd
-			config.HTTPBasicAuthUser = uri.User.Username()
-		}
-	}
+	config.HTTPBasicAuthUser = *marathonUserName
+	config.HTTPBasicPassword = *marathonPassword
 	config.HTTPClient = &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
@@ -73,7 +73,7 @@ func main() {
 
 	retryTimeout := time.Duration(10 * time.Second)
 	for {
-		err := marathonConnect(uri)
+		err := marathonConnect()
 		if err == nil {
 			break
 		}
