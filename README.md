@@ -37,7 +37,7 @@ Usage of marathon_exporter:
         URI of Marathon (default "http://marathon.mesos:8080")
         Note: Supply HTTP Basic Auth (i.e. user:password@example.com)
 	            If you URI inclube '%' ,you should used marathon.username and marathon.password
-  -marathon.usernaem string
+  -marathon.username string
 	      marathon author username ,(default "")
   -marathon.password string
         marathon author password ,(default "")
