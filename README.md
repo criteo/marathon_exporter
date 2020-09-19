@@ -36,6 +36,11 @@ Usage of marathon_exporter:
   -marathon.uri string
         URI of Marathon (default "http://marathon.mesos:8080")
         Note: Supply HTTP Basic Auth (i.e. user:password@example.com)
+	            If you URI inclube '%' ,you should used marathon.username and marathon.password
+  -marathon.usernaem string
+	      marathon author username ,(default "")
+  -marathon.password string
+        marathon author password ,(default "")
   -web.listen-address string
         Address to listen on for web interface and telemetry. (default ":9088")
   -web.telemetry-path string
