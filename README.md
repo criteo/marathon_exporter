@@ -38,7 +38,7 @@ Usage of marathon_exporter:
         Note: Supply HTTP Basic Auth (i.e. user:password@example.com)
 	            If you URI inclube '%' ,you should used marathon.username and marathon.password
   -marathon.username string
-	      marathon author username ,(default "")
+	marathon author username ,(default "")
   -marathon.password string
         marathon author password ,(default "")
   -web.listen-address string
