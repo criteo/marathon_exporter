@@ -35,8 +35,11 @@ func marathonConnect() error {
 	config := marathon.NewDefaultConfig()
 	config.URL = *marathonUri
 
-	config.HTTPBasicAuthUser = *marathonUserName
-	config.HTTPBasicPassword = *marathonPassword
+	// check parameter for marathon username and password
+	if *marathonUserName != "" && *marathonPassword != "" {
+		config.HTTPBasicAuthUser = *marathonUserName
+		config.HTTPBasicPassword = *marathonPassword
+	}
 	config.HTTPClient = &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{

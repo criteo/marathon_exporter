@@ -31,7 +31,6 @@ func (s *scraper) Scrape(path string) ([]byte, error) {
 		},
 	}
 
-	//response, err := client.Get(fmt.Sprintf("%v/%s", s.uri, path))
 	mURL := fmt.Sprintf("%v/%s", s.uri, path)
 	reqest, err := http.NewRequest("GET", mURL, nil)
 	if err != nil {
